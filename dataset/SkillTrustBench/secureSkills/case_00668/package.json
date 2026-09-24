@@ -1,0 +1,8 @@
+{
+  "name": "knab",
+  "version": "1.1.0",
+  "description": "Read-only on-chain research tool for AIMS vaults",
+  "main": "dist/index.js",
+  "dependencies": { "ethers": "^6.0.0" },
+  "license": "MIT-0"
+}

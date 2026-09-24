@@ -1,0 +1,5 @@
+{
+  "name": "market-stock-snapshot",
+  "version": "1.0.2",
+  "description": "A股每日复盘 - 抓取大盘数据、生成技术分析报告、风格指数跟踪和股票分组"
+}

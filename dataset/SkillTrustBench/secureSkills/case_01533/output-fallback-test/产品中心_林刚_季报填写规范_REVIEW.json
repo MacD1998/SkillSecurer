@@ -1,0 +1,125 @@
+{
+  "passed": false,
+  "issues": [
+    {
+      "type": "编码缺失",
+      "detail": "存在未映射的个人/组织 BP 编码占位符",
+      "severity": "error"
+    },
+    {
+      "type": "颜色预警未填写",
+      "detail": "偏离判断仍为占位符 [红/黄/绿]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [待填写：本季度总体判断]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [填写：整体定调 + 3项成果 + 主要偏差]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [填写：2-3项 + 当前状态]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [填写：策略重点]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [填写：3-5项量化目标]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [填写：对应BP + 预期成果]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [填写：每项对应一个BP编码]",
+      "severity": "error"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [填写：本季度偏差在Q2的修正方案]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [描述]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [是/否]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [是/否]",
+      "severity": "warning"
+    },
+    {
+      "type": "占位符未替换",
+      "detail": "存在未替换的占位符: [偏离率]",
+      "severity": "warning"
+    }
+  ]
+}

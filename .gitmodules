@@ -1,0 +1,3 @@
+[submodule "skill-inject"]
+	path = skill-inject
+	url = https://github.com/aisa-group/skill-inject

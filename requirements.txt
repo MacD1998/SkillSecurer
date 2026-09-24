@@ -1,0 +1,36 @@
+# Dipendenze dirette di SSE.
+# Per riprodurre ESATTAMENTE l'ambiente che ha prodotto i risultati in results/,
+# usa invece requirements-lock.txt (versioni pinnate, vedi README).
+
+# Orchestrazione del grafo e client LLM
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+# langsmith: nessun import diretto nel codice — è langchain-core a usarlo quando
+# il tracing è attivo (LANGCHAIN_TRACING_V2 / LANGCHAIN_API_KEY nel .env, vedi
+# .env.example). Elencato esplicitamente perché è una funzionalità che usiamo,
+# non una dipendenza accidentale.
+langsmith>=0.1.0
+
+# Configurazione
+python-dotenv>=1.0.0
+
+# Report
+reportlab>=4.0.0          # report.pdf
+
+# Mock server del sandbox + WebUI
+flask>=3.0.0
+
+# Sandbox del tester.
+# ATTENZIONE: questo è l'SDK Python, e il codice NON lo importa mai — il
+# container è pilotato eseguendo la CLI `docker` in subprocess
+# (agents/docker_runner.py). La riga è tenuta come promemoria del prerequisito.
+#
+# `pip install` NON installa Docker: servono il demone e la CLI, a livello di
+# sistema. Il controllo vero è il preflight in main.py (_check_docker), che
+# verifica CLI, demone e immagine PRIMA di spendere in chiamate LLM.
+docker>=7.0.0
+
+# Test (pytest.ini + tests/) — solo logica pura, niente LLM/Docker/rete:
+#   .venv/bin/python -m pytest
+pytest>=8.0.0

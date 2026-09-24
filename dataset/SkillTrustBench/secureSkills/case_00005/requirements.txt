@@ -1,0 +1,16 @@
+# 加密钱包工具依赖
+
+# Web3交互
+web3>=6.0.0
+eth-account>=0.8.0
+eth-utils>=2.1.0
+
+# 助记词生成
+mnemonic>=0.20
+
+# 环境变量管理
+python-dotenv>=1.0.0
+
+# 可选：数据分析
+pandas>=2.0.0
+numpy>=1.24.0

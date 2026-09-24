@@ -1,0 +1,10 @@
+{
+  "backend": "jobspy-local-adapter",
+  "siteNames": ["indeed", "linkedin", "zip_recruiter", "google"],
+  "resultsWanted": 15,
+  "freshnessHours": 720,
+  "linkedinFetchDescription": false,
+  "easyApply": false,
+  "defaultCountryIndeed": "france",
+  "verbose": 1
+}

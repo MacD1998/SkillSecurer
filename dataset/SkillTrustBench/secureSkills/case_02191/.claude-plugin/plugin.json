@@ -1,0 +1,29 @@
+{
+  "name": "visa-itinerary-gen",
+  "description": "Generate consulate-grade Schengen visa itinerary in 30 seconds. Real data from Fliggy, zero hallucination.",
+  "version": "0.1.0",
+  "author": {
+    "name": "zephryve",
+    "url": "https://github.com/zephryve"
+  },
+  "homepage": "https://github.com/zephryve/visa-itinerary-gen",
+  "repository": "https://github.com/zephryve/visa-itinerary-gen",
+  "license": "MIT",
+  "keywords": [
+    "visa",
+    "schengen",
+    "itinerary",
+    "travel-plan",
+    "fliggy",
+    "flyai",
+    "booking",
+    "consulate",
+    "travel-document"
+  ],
+  "dependencies": {
+    "skills": ["flyai"],
+    "bins": ["node"],
+    "python": ["playwright"]
+  },
+  "setup": "scripts/setup.sh"
+}

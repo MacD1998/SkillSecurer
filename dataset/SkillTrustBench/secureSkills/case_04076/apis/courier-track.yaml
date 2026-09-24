@@ -1,0 +1,46 @@
+name: courier-track
+description: 查询快递物流轨迹，支持国内快递（顺丰、圆通、京东等）
+tags: [快递, 物流, 查询]
+
+method: POST
+path: /skill/courier/track
+
+body:
+  content_type: application/json
+  fields:
+    trackingNumber:
+      type: string
+      required: true
+      description: 快递单号（8~35位字母数字或短横线）
+    carrierCode:
+      type: string
+      required: false
+      description: 快递公司代码，如 shunfeng、yuantong、jingdong；不填则自动识别
+    kuaidi100Key:
+      type: string
+      required: false
+      env: KUAIDI100_KEY
+      description: 用户自己的快递100 API Key，优先于系统配置
+    kuaidi100Customer:
+      type: string
+      required: false
+      env: KUAIDI100_CUSTOMER
+      description: 用户自己的快递100 Customer，与 kuaidi100Key 配套使用
+
+response:
+  data_path: data
+  columns:
+    - field: trackingNumber
+      label: 单号
+    - field: carrierName
+      label: 快递公司
+    - field: status
+      label: 状态
+    - field: estimatedDelivery
+      label: 预计送达
+    - field: cached
+      label: 缓存命中
+    - field: dataSource
+      label: 数据来源
+    - field: events
+      label: 轨迹详情

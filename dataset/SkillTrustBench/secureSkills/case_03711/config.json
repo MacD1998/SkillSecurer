@@ -1,0 +1,27 @@
+{
+  "api": {
+    "endpoint": "https://ibotservice.alipayplus.com/almpapi/v1/message/chat",
+    "token": "003d2b7d-1ef9-4827-ab9b-cae765689f9d",
+    "botId": "2026030610103389649",
+    "bizUserId": "2107220265020227",
+    "serviceType": "RECALL_hotel"
+  },
+  "defaults": {
+    "checkInDaysOffset": 7,
+    "checkOutDaysOffset": 8,
+    "currency": "CNY",
+    "language": "zh-CN"
+  },
+  "parameters": {
+    "maxHotelNames": 5,
+    "maxBrandNames": 5,
+    "maxNearbyPOI": 1,
+    "enableParallelQueries": true
+  },
+  "output": {
+    "showTopResults": 10,
+    "sortByPrice": true,
+    "includeRating": true,
+    "includeAmenities": false
+  }
+}

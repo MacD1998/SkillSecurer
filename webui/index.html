@@ -1,0 +1,2377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkillSecurer · WebUI</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width:14px;height:14px;border:2px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;animation:spin .7s linear infinite;display:inline-block; }
+  .log-line { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  details>summary { list-style:none; } details>summary::-webkit-details-marker{display:none;}
+  /* Stacked full-width: launch params on top, phases/output below.
+     I parametri usano un grid responsive interno (vedi #form) per spalmarsi in
+     orizzontale; i blocchi grandi (fieldset pipeline) prendono la riga intera. */
+  .layout { display:flex; flex-direction:column; gap:1rem; }
+  /* Phase item lines (▸ …) wrap instead of overflowing the container. */
+  .item-line { overflow-wrap:anywhere; word-break:break-word; white-space:normal; }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+<header class="bg-slate-900 text-white px-6 py-3 flex items-center gap-3 shadow">
+  <span class="text-xl">🛡️</span>
+  <h1 class="text-lg font-semibold">SkillSecurer <span class="text-slate-400 font-normal">· local WebUI</span></h1>
+  <span id="liveDot" class="ml-auto hidden items-center gap-2 text-sm">
+    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span> running…
+  </span>
+</header>
+
+<nav class="max-w-[1400px] mx-auto px-4 pt-4">
+  <div class="inline-flex bg-white rounded-lg shadow p-1 gap-1">
+    <button id="tabRun" type="button" class="px-4 py-1.5 rounded-md text-sm font-medium">Run</button>
+    <button id="tabHistory" type="button" class="px-4 py-1.5 rounded-md text-sm font-medium">History</button>
+    <button id="tabCompare" type="button" class="px-4 py-1.5 rounded-md text-sm font-medium">Post-processing</button>
+  </div>
+</nav>
+
+<main id="runView" class="max-w-[1400px] mx-auto p-4 layout">
+
+  <!-- ── LAUNCH FORM ─────────────────────────────────────────────── -->
+  <section class="bg-white rounded-xl shadow p-5 h-fit form-pane">
+    <h2 class="font-semibold text-slate-700 mb-4">Launch parameters</h2>
+    <form id="form" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-6 gap-y-4 text-sm items-start">
+
+      <!-- Run settings — card separata, comune a tutte le pipeline -->
+      <div class="col-span-full border rounded-lg p-3 bg-slate-50">
+        <div class="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Run settings</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-4 gap-y-3">
+          <div>
+            <label class="block font-medium mb-1">Output folder</label>
+            <input id="output" type="text" value="results/webui_run" class="w-full border rounded-md px-2 py-1.5">
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Parallel</label>
+            <input id="parallel" type="number" min="1" value="20" class="w-full border rounded-md px-2 py-1.5">
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Max files <span class="text-slate-400 font-normal">(optional)</span></label>
+            <input id="max_files" type="number" min="1" placeholder="no limit" class="w-full border rounded-md px-2 py-1.5">
+          </div>
+          <div id="modelPicker">
+            <div class="flex items-center justify-between mb-1">
+              <label class="font-medium">Model <span class="text-slate-400 font-normal">(OpenRouter)</span></label>
+              <span class="flex items-center gap-2">
+                <button type="button" id="agentModelsBtn" class="text-xs text-blue-600 hover:underline">per-agent models</button>
+                <button type="button" id="modelReset" class="text-xs text-blue-600 hover:underline">default</button>
+              </span>
+            </div>
+            <div class="relative">
+              <input id="modelSearch" type="text" autocomplete="off" placeholder="Default from .env — type to search…"
+                     class="w-full border rounded-md px-2 py-1.5">
+              <div id="modelSuggest"
+                   class="hidden absolute z-30 left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-56 overflow-y-auto text-sm"></div>
+            </div>
+            <div id="modelInfo" class="hidden text-xs text-slate-500 mt-1 log-line"></div>
+            <div id="providerExclude" class="hidden mt-1.5">
+              <div class="text-xs text-slate-500 mb-1">Exclude providers
+                <span class="text-slate-400 font-normal">(routing picks cheapest of the rest)</span></div>
+              <div id="providerList" class="flex flex-wrap gap-x-3 gap-y-1 text-xs"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-span-full max-w-md">
+        <label class="block font-medium mb-1">Pipeline <span class="text-slate-400 font-normal">(template — everything below stays editable)</span></label>
+        <select id="pipeline" class="w-full border rounded-md px-2 py-1.5">
+          <optgroup label="Predefined">
+            <option value="full" selected>full</option>
+            <option value="red-only">red-only</option>
+            <option value="blue-only">blue-only</option>
+            <option value="blue-eval">blue-eval</option>
+            <option value="blue-eval-testing">blue-eval-testing</option>
+            <option value="custom">custom (new)…</option>
+          </optgroup>
+          <optgroup label="Custom" id="customPresetGroup">
+            <!-- saved presets injected here by JS as value="preset:<name>" -->
+          </optgroup>
+        </select>
+      </div>
+
+      <!-- Custom pipeline: 4-step wizard (source → blue → eval → tester).
+           Also serves the 4 "predefinite" dropdown entries — picking one just
+           seeds these same fields with that pipeline's old defaults, fully
+           editable from there (uniform with saved/new custom presets). -->
+      <fieldset id="customOnly" class="col-span-full grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-2 items-start">
+
+        <!-- LEFT column: source + its sub-pickers -->
+        <div class="space-y-4">
+
+        <!-- Step 1 — source -->
+        <div id="cStepSource">
+          <label class="block font-medium mb-1">1. Source <span class="text-slate-400 font-normal">(skill origin)</span></label>
+          <div class="grid grid-cols-2 gap-2">
+            <label id="cSrcOptRed" class="flex items-center gap-1.5 border rounded-md px-2 py-1.5 cursor-pointer min-w-0 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700"><input type="radio" name="cSource" value="red" class="shrink-0" checked> <span class="truncate">red</span></label>
+            <label id="cSrcOptSkillInject" class="flex items-center gap-1.5 border rounded-md px-2 py-1.5 cursor-pointer min-w-0 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700"><input type="radio" name="cSource" value="skill_inject" class="shrink-0"> <span class="truncate">skill_inject</span></label>
+            <label id="cSrcOptLocal" class="flex items-center gap-1.5 border rounded-md px-2 py-1.5 cursor-pointer min-w-0 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700"><input type="radio" name="cSource" value="local_preinjected" class="shrink-0"> <span class="truncate">local_preinjected</span></label>
+            <label id="cSrcOptOnline" class="flex items-center gap-1.5 border rounded-md px-2 py-1.5 cursor-pointer min-w-0 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50 has-[:checked]:text-blue-700"><input type="radio" name="cSource" value="online" class="shrink-0"> <span class="truncate">online</span></label>
+          </div>
+          <p id="cSourceGt" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+
+        <!-- 1a — pick a FOLDER → all nested .md auto-collected → searchable pick -->
+        <div id="cFolderPicker" class="space-y-2">
+          <label class="block font-medium">Folder <span class="text-slate-400 font-normal">(all nested .md auto-collected)</span></label>
+          <div class="flex flex-wrap gap-2">
+            <input id="cFolder" type="text" autocomplete="off" placeholder="Path to a folder…"
+                   class="flex-1 min-w-0 border rounded-md px-2 py-1.5 log-line text-xs">
+            <button type="button" id="cFolderBrowse" class="px-3 border rounded-md bg-slate-50 hover:bg-slate-100 text-sm whitespace-nowrap">Browse…</button>
+            <button type="button" id="cFolderUse" class="px-3 border rounded-md bg-blue-600 text-white hover:bg-blue-700 text-sm whitespace-nowrap">Use folder</button>
+            <button type="button" id="cSiBase" class="hidden px-3 border rounded-md bg-amber-50 hover:bg-amber-100 text-sm whitespace-nowrap" title="Use skill-inject's clean base SKILL.md files as the Red's input">📚 skill-inject base</button>
+          </div>
+          <div id="cFolderErr" class="hidden text-xs text-rose-600"></div>
+
+          <!-- folder navigator (dirs only) -->
+          <div id="cBrowsePanel" class="hidden border rounded-md p-2 bg-slate-50">
+            <div id="cCrumbs" class="flex flex-wrap items-center gap-1 text-xs mb-2"></div>
+            <div id="cDirs" class="max-h-40 overflow-y-auto space-y-0.5"></div>
+            <div class="flex justify-end gap-2 mt-2">
+              <button type="button" id="cUseThis" class="text-xs bg-blue-600 text-white rounded-md px-3 py-1.5 hover:bg-blue-700">Use this folder</button>
+              <button type="button" id="cCloseBrowse" class="text-xs border rounded-md px-3 py-1.5 hover:bg-white">Close</button>
+            </div>
+          </div>
+
+          <!-- file filter + in-flow multi-select checklist (appears after Use folder) -->
+          <div id="cFileSel" class="hidden">
+            <div class="flex items-center justify-between mb-1">
+              <label class="font-medium text-xs"><span id="cFileSelCount">0</span>/<span id="cFileCount">0</span> .md selected</label>
+              <div class="flex items-center gap-3 text-xs">
+                <label class="flex items-center gap-1 cursor-pointer" title="Select only files named SKILL.md">
+                  <input type="checkbox" id="cFileSkillOnly" class="shrink-0"> SKILL.md only
+                </label>
+                <button type="button" id="cFileAll" class="text-blue-600 hover:underline">all</button>
+                <button type="button" id="cFileNone" class="text-blue-600 hover:underline">none</button>
+              </div>
+            </div>
+            <input id="cFileSearch" type="text" autocomplete="off" placeholder="Type to filter .md…"
+                   class="w-full border rounded-md px-2 py-1.5 mb-1">
+            <div id="cFileList" class="border rounded-md p-2 max-h-44 overflow-y-auto text-xs space-y-0.5"></div>
+          </div>
+        </div>
+
+        <!-- 1a-bis — Red: difficoltà delle injection da generare (K1/K2/K3) -->
+        <div id="cRedDiff" class="hidden">
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-medium">Injection difficulty <span class="text-slate-400 font-normal">(Red)</span></label>
+            <div class="flex gap-2 text-xs">
+              <button type="button" id="cRedDiffAll" class="text-blue-600 hover:underline">all</button>
+              <button type="button" id="cRedDiffNone" class="text-blue-600 hover:underline">none</button>
+            </div>
+          </div>
+          <div class="flex gap-4 text-sm">
+            <label class="flex items-center gap-1.5"><input type="checkbox" class="c-red-diff" value="K1" checked> K1</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" class="c-red-diff" value="K2" checked> K2</label>
+            <label class="flex items-center gap-1.5"><input type="checkbox" class="c-red-diff" value="K3" checked> K3</label>
+          </div>
+        </div>
+
+        <!-- 1a-ter — Red: vulnerability types to generate -->
+        <div id="cRedVuln" class="hidden">
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-medium"><span id="cRedVulnSel">0</span>/<span id="cRedVulnCount">0</span> vuln types <span class="text-slate-400 font-normal">(Red)</span></label>
+            <div class="flex gap-2 text-xs">
+              <button type="button" id="cRedVulnAll" class="text-blue-600 hover:underline">all</button>
+              <button type="button" id="cRedVulnNone" class="text-blue-600 hover:underline">none</button>
+            </div>
+          </div>
+          <div id="cRedVulnBox" class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 border rounded-md p-2 max-h-44 overflow-y-auto text-xs"></div>
+        </div>
+
+        <!-- 1a-quater — Red: profilo skill-inject (8 classi paper + KB di esempi) -->
+        <div id="cRedKb" class="hidden">
+          <label class="flex items-start gap-2 text-sm cursor-pointer border rounded-md px-2 py-2 has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50"
+                 title="The Red uses the paper's 8-class taxonomy (catalog_paper.json) and skill-inject's direct injections as inspiration examples (never copied). Replaces the vuln types above.">
+            <input type="checkbox" id="cRedKbChk" class="mt-0.5 shrink-0">
+            <span><span class="font-medium">Use skill-inject's injections as KB</span>
+              <span class="block text-xs text-slate-500">Paper's 8-class taxonomy + real examples as inspiration (not copied). Replaces the selected vuln types.</span></span>
+          </label>
+        </div>
+
+        <!-- 1b — skill_inject categories + skill-file filter -->
+        <div id="cSiPicker" class="hidden space-y-3">
+          <div>
+            <label class="font-medium block mb-1">Categories</label>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-1.5"><input type="checkbox" class="c-si-cat" value="obvious" checked> obvious</label>
+              <label class="flex items-center gap-1.5"><input type="checkbox" class="c-si-cat" value="contextual" checked> contextual</label>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="font-medium"><span id="cSiSelCount">0</span>/<span id="cSiCount">0</span> skill files</label>
+              <div class="flex gap-2 text-xs">
+                <button type="button" id="cSiAll" class="text-blue-600 hover:underline">all</button>
+                <button type="button" id="cSiNone" class="text-blue-600 hover:underline">none</button>
+              </div>
+            </div>
+            <div id="cSiSkills" class="grid grid-cols-2 gap-x-3 gap-y-1 border rounded-md p-2 max-h-44 overflow-y-auto text-xs"></div>
+          </div>
+          <details class="text-sm">
+            <summary class="cursor-pointer text-slate-500 select-none">Advanced</summary>
+            <div class="mt-2">
+              <label class="block font-medium mb-1">skill-inject path</label>
+              <input id="cSiPath" type="text" value="skill-inject"
+                     class="w-full border rounded-md px-2 py-1.5 log-line text-xs">
+            </div>
+          </details>
+        </div>
+
+        <!-- 1c — online URLs -->
+        <div id="cUrlPicker" class="hidden">
+          <label class="block font-medium mb-1">URLs <span class="text-slate-400 font-normal">(one per line)</span></label>
+          <textarea id="cUrls" rows="3" placeholder="https://…/SKILL.md" class="w-full border rounded-md px-2 py-1.5 log-line text-xs resize-y"></textarea>
+        </div>
+
+        </div><!-- /LEFT -->
+
+        <!-- RIGHT column: steps blue/eval/tester + save preset -->
+        <div class="space-y-4">
+
+        <!-- Step 2 — defense (selezione motori) -->
+        <div id="cStepDefense" class="border-t pt-3 lg:border-t-0 lg:pt-0">
+          <label class="font-medium">2. Defense <span class="text-slate-400 font-normal">(which engines scan each skill)</span></label>
+          <p class="text-xs text-slate-500 mt-1">Alternative defenses, not a comparison: run one engine per run,
+            then build the comparative report afterwards from those runs. Only Blue patches — eval and tester need it.</p>
+          <div class="flex flex-col gap-y-1 mt-2">
+            <label class="flex items-center gap-2 text-xs">
+              <input type="checkbox" id="cBlue">
+              🔵 Blue <span class="text-slate-400 font-normal">(ours — scan + patch)</span>
+            </label>
+            <label id="withSkillspectorRow" class="flex items-center gap-2 text-xs">
+              <input type="checkbox" id="withSkillspector">
+              🟩 NVIDIA SkillSpector <span class="text-slate-400 font-normal">(vendorizzato in vendor/skillspector/)</span>
+            </label>
+            <label id="skillspectorNoLlmRow" class="flex items-center gap-2 text-xs ml-5">
+              <input type="checkbox" id="skillspectorNoLlm">
+              <span class="text-slate-400 font-normal">— static-only (force no LLM, even with credentials available — for LLM vs. static-only comparison)</span>
+            </label>
+            <label id="withCiscoRow" class="flex items-center gap-2 text-xs">
+              <input type="checkbox" id="withCisco">
+              🔷 Cisco skill-scanner <span class="text-slate-400 font-normal">(runs <code>uvx cisco-ai-skill-scanner</code>)</span>
+            </label>
+            <label id="ciscoNoLlmRow" class="flex items-center gap-2 text-xs ml-5">
+              <input type="checkbox" id="ciscoNoLlm">
+              <span class="text-slate-400 font-normal">— static-only (force no LLM, even with credentials available — for LLM vs. static-only comparison)</span>
+            </label>
+            <label id="withAigRow" class="flex items-center gap-2 text-xs">
+              <input type="checkbox" id="withAig">
+              🐉 Tencent aig-skill-scan <span class="text-slate-400 font-normal">(runs <code>uvx aig-skill-scan</code>, LLM-only)</span>
+            </label>
+            <label id="withSkillVetterRow" class="flex items-center gap-2 text-xs">
+              <input type="checkbox" id="withSkillVetter">
+              📋 skill-vetter <span class="text-slate-400 font-normal">(OpenClaw skill reproduced via LLM, LLM-only)</span>
+            </label>
+            <label id="withSnykRow" class="flex items-center gap-2 text-xs">
+              <input type="checkbox" id="withSnyk">
+              🛡️ Snyk <span class="text-slate-400 font-normal">(runs <code>uvx snyk-agent-scan</code>)</span>
+            </label>
+            <label id="withSkillsShRow" class="flex items-center gap-2 text-xs">
+              <input type="checkbox" id="withSkillsSh">
+              🌐 skills.sh <span class="text-slate-400 font-normal">(verdict already computed — no live scan, only for skills from the skills_sh_dataset dataset)</span>
+            </label>
+          </div>
+          <p id="skillsShHint" class="hidden text-[11px] text-amber-600 mt-1">
+            "Snyk" disabled: skills.sh already includes its own Snyk engine.
+          </p>
+          <p id="cDefenseHint" class="text-[11px] text-slate-400 mt-1"></p>
+        </div>
+
+        <!-- Step 3 — eval -->
+        <div id="cStepEval" class="border-t pt-3">
+          <div class="flex items-center justify-between">
+            <label class="font-medium">3. Eval <span class="text-slate-400 font-normal">(detection accuracy)</span></label>
+            <input type="checkbox" id="cEval" class="w-4 h-4">
+          </div>
+          <p id="cEvalHint" class="text-xs text-slate-400 mt-1"></p>
+        </div>
+
+        <!-- Step 4 — tester -->
+        <div id="cStepTester" class="border-t pt-3">
+          <div class="flex items-center justify-between">
+            <label class="font-medium">4. Tester <span class="text-slate-400 font-normal">(execute injections)</span></label>
+            <input type="checkbox" id="cTester" class="w-4 h-4">
+          </div>
+          <p id="cTesterMode" class="text-xs text-slate-400 mt-1"></p>
+          <div id="cScopeWrap" class="mt-2 hidden">
+            <label class="block text-xs font-medium mb-1">Scope</label>
+            <div class="flex gap-4 text-sm">
+              <label class="flex items-center gap-1.5"><input type="radio" name="cScope" value="all" checked> all</label>
+              <label class="flex items-center gap-1.5"><input type="radio" name="cScope" value="blue_gap_only"> blue_gap_only</label>
+            </div>
+          </div>
+          <div id="cAttemptsWrap" class="mt-2 hidden">
+            <label class="block text-xs font-medium mb-1">Max attempts <span class="text-slate-400 font-normal">(prompts replayed against BASE/INJECTED/FIXED)</span></label>
+            <input id="cMaxAttempts" type="number" min="1" value="5" class="w-32 border rounded-md px-2 py-1.5">
+          </div>
+          <div id="cInjAwareWrap" class="mt-2 hidden">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="cInjAware" class="w-4 h-4" checked>
+              <span class="text-xs font-medium">Injection-aware prompts</span>
+            </label>
+            <p class="text-xs text-slate-400 mt-1">On: prompts targeted at the injected section.
+              Off: generated blindly from BASE alone. Either way, they remain requests from a benevolent user.</p>
+          </div>
+        </div>
+        </div><!-- /RIGHT -->
+      </fieldset>
+
+      <div class="col-span-full">
+        <label class="block font-medium mb-1">Notes <span class="text-slate-400 font-normal">(optional, saved in report)</span></label>
+        <textarea id="notes" rows="2" placeholder="e.g. baseline run, model X, testing hypothesis Y…"
+                  class="w-full border rounded-md px-2 py-1.5 resize-y"></textarea>
+      </div>
+
+      <!-- System prompts (advanced): un textarea per agente, pre-valorizzato col
+           default. I textarea invariati non vengono inviati (restano i default). -->
+      <details id="promptsPanel" class="col-span-full border rounded-lg bg-slate-50">
+        <summary class="cursor-pointer select-none px-3 py-2 font-medium text-sm flex items-center justify-between">
+          <span>🧠 Agent system prompts <span class="text-slate-400 font-normal">(advanced — edit to override defaults)</span></span>
+          <button type="button" id="promptsReset" class="text-xs text-blue-600 hover:underline">reset all</button>
+        </summary>
+        <div id="promptsBox" class="px-3 py-3 space-y-3 text-xs text-slate-500">Loading defaults…</div>
+      </details>
+
+      <!-- Save as preset (ogni run — anche partito da un template predefinito — è
+           salvabile come preset custom, stesso schema per tutti) -->
+      <div id="savePresetBox" class="col-span-full border rounded-lg p-3 bg-amber-50 space-y-2">
+        <label class="block font-medium">Save as preset</label>
+        <div class="flex gap-2 max-w-md">
+          <input id="cPresetName" type="text" placeholder="preset name…" class="flex-1 min-w-0 border rounded-md px-2 py-1.5">
+          <button type="button" id="cSaveBtn" class="px-3 border rounded-md bg-emerald-50 hover:bg-emerald-100 text-sm whitespace-nowrap">💾 Save</button>
+        </div>
+        <p id="cSaveMsg" class="text-xs"></p>
+        <p id="cValErr" class="text-xs text-rose-600"></p>
+        <div id="cPresetActions" class="hidden flex gap-2 text-xs">
+          <button type="button" id="cDupBtn" class="text-blue-600 hover:underline">duplicate</button>
+          <button type="button" id="cDelBtn" class="text-rose-600 hover:underline">delete</button>
+        </div>
+      </div>
+
+      <div class="col-span-full flex gap-2 pt-1">
+        <button id="runBtn" type="submit"
+          class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-md py-2 transition">
+          ▶ Run Benchmark
+        </button>
+        <button id="stopBtn" type="button" disabled
+          class="px-3 bg-rose-50 text-rose-600 border border-rose-200 rounded-md disabled:opacity-40">Stop</button>
+      </div>
+      <p id="argv" class="col-span-full text-[11px] text-slate-400 log-line break-all"></p>
+    </form>
+  </section>
+
+  <!-- Model per agent (advanced): modale aperto dal bottone "per-agent models"
+       accanto al model picker principale. Solo i ruoli rilevanti per la
+       pipeline selezionata compaiono (stesso gating del pannello system-prompt).
+       Vuoto = eredita il modello principale (mostrato in alto, sola lettura). -->
+  <div id="agentModelsModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between px-4 py-3 border-b">
+        <h3 class="font-semibold text-slate-700">Model per agent</h3>
+        <button type="button" id="agentModelsClose" class="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+      </div>
+      <div class="px-4 py-3 space-y-3">
+        <div class="border rounded-md px-3 py-2 bg-slate-50">
+          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Main model (default for every agent)</div>
+          <div id="agentModelsMainInfo" class="text-sm text-slate-700 mt-0.5 log-line">—</div>
+        </div>
+        <p class="text-xs text-slate-500">Override individual agents below — blank means it inherits the main model.</p>
+        <div id="agentModelsBox" class="space-y-2 text-xs text-slate-500">No agent for this selection.</div>
+      </div>
+      <div class="px-4 py-3 border-t text-right">
+        <button type="button" id="agentModelsDone" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LIVE OUTPUT ─────────────────────────────────────────────── -->
+  <section class="space-y-4">
+
+    <div id="headerBox" class="hidden bg-white rounded-xl shadow p-4">
+      <div class="font-semibold text-slate-700" id="hbTitle"></div>
+      <div class="text-xs text-slate-500 mt-1 log-line" id="hbParams"></div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="font-semibold text-slate-700 mb-3">Phases</h2>
+      <div id="phases" class="space-y-1.5"></div>
+
+      <div id="barWrap" class="hidden mt-4">
+        <div class="flex justify-between text-xs text-slate-500 mb-1">
+          <span id="barLabel">tester</span>
+          <span id="barPct">0%</span>
+        </div>
+        <div class="h-3 bg-slate-200 rounded-full overflow-hidden">
+          <div id="bar" class="h-full bg-blue-600 transition-all duration-200" style="width:0%"></div>
+        </div>
+        <div class="text-[11px] text-slate-400 mt-1" id="barCount"></div>
+      </div>
+    </div>
+
+    <div id="tokensCard" class="hidden bg-white rounded-xl shadow p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-slate-700">Cost &amp; Usage <span class="text-xs font-normal text-slate-400">· live</span></h2>
+        <span id="tokCost" class="text-sm font-semibold text-emerald-700"></span>
+      </div>
+      <!-- Contesto del run: a quale modello/routing si riferiscono i numeri. -->
+      <div id="tokMeta" class="text-[11px] text-slate-500 mb-3 log-line"></div>
+      <div class="grid grid-cols-3 gap-2 text-center text-sm mb-3">
+        <div><div id="tokIn" class="font-semibold tabular-nums">0</div><div class="text-[11px] text-slate-400">input</div></div>
+        <div><div id="tokOut" class="font-semibold tabular-nums">0</div><div class="text-[11px] text-slate-400">output</div></div>
+        <div><div id="tokTotal" class="font-semibold tabular-nums">0</div><div class="text-[11px] text-slate-400">total · <span id="tokCalls">0</span> calls</div></div>
+      </div>
+      <table class="w-full text-xs">
+        <thead><tr class="text-slate-400 border-b">
+          <th class="text-left font-normal py-1">Agent</th>
+          <th class="text-right font-normal py-1">Calls</th>
+          <th class="text-right font-normal py-1">Input</th>
+          <th class="text-right font-normal py-1">Output</th>
+          <th class="text-right font-normal py-1">Total</th>
+          <th class="text-left font-normal py-1 pl-2">Provider</th>
+        </tr></thead>
+        <tbody id="tokAgents"></tbody>
+        <tfoot id="tokTotalRow" class="hidden"></tfoot>
+      </table>
+    </div>
+
+    <div id="alertsCard" class="hidden bg-white rounded-xl shadow p-4">
+      <h2 class="font-semibold text-slate-700 mb-2">Warnings &amp; errors</h2>
+      <div id="alerts" class="space-y-1 text-sm log-line"></div>
+    </div>
+
+    <div id="finishBox" class="hidden rounded-xl shadow p-4 border-l-4">
+      <div class="flex items-center justify-between">
+        <div class="font-semibold" id="finTitle"></div>
+        <a id="reportBtn" href="/report" target="_blank"
+           class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md px-4 py-2">
+          📄 Open Report
+        </a>
+      </div>
+      <div class="text-sm text-slate-600 mt-2" id="finStats"></div>
+      <div class="text-[11px] text-slate-400 mt-1 log-line" id="finPath"></div>
+    </div>
+
+    <details class="bg-white rounded-xl shadow p-4">
+      <summary class="cursor-pointer font-semibold text-slate-700 select-none flex items-center gap-2">
+        <span class="text-slate-400">▾</span> Raw output
+        <span id="rawCount" class="ml-auto text-xs font-normal text-slate-400">0 lines</span>
+      </summary>
+      <pre id="rawLog" class="mt-3 text-xs log-line bg-slate-950 text-slate-200 rounded-lg p-3 max-h-[420px] overflow-auto whitespace-pre-wrap"></pre>
+    </details>
+
+  </section>
+</main>
+
+<!-- ── HISTORY VIEW ──────────────────────────────────────────────── -->
+<section id="historyView" class="hidden max-w-[1400px] mx-auto p-4">
+  <div class="bg-white rounded-xl shadow p-4">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-slate-700">Run history</h2>
+      <button id="refreshHistory" type="button"
+              class="text-sm border rounded-md px-3 py-1.5 hover:bg-slate-100">↻ Refresh</button>
+    </div>
+    <div class="flex items-center gap-4 text-sm mb-3">
+      <span class="text-slate-500">Show:</span>
+      <label class="flex items-center gap-1.5"><input type="checkbox" id="cHistShowRun" checked> Runs</label>
+      <label class="flex items-center gap-1.5"><input type="checkbox" id="cHistShowCmp" checked> Post-processing</label>
+    </div>
+    <div id="historyEmpty" class="hidden text-sm text-slate-400 py-10 text-center">No runs yet.</div>
+    <div id="historyWrap" class="overflow-x-auto">
+      <table id="historyTable" class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-slate-500 border-b">
+            <th class="py-2 pr-2">Run ID</th>
+            <th class="py-2 px-2">Type</th>
+            <th class="py-2 px-2">Date</th>
+            <th class="py-2 px-2">Skills</th>
+            <th class="py-2 px-2">Vuln types</th>
+            <th class="py-2 px-2 text-center">Injections</th>
+            <th class="py-2 px-2 text-center" title="Generic Detection Rate — Blue's own self-reported detection, or the single active engine's own rate. Not verified against ground truth.">GDR</th>
+            <th class="py-2 px-2 text-center">ASR pre→post</th>
+            <th class="py-2 px-2 text-center">Func preserved</th>
+            <th class="py-2 px-2 text-center">Report</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── POST-PROCESSING: compare runs on the same dataset ─────────── -->
+<section id="compareView" class="hidden max-w-[1400px] mx-auto p-4">
+  <div class="bg-white rounded-xl shadow p-5">
+    <div class="flex items-center justify-between mb-1">
+      <h2 class="font-semibold text-slate-700">Compare runs (same dataset)</h2>
+      <button id="refreshGroups" type="button"
+              class="text-sm border rounded-md px-3 py-1.5 hover:bg-slate-100">↻ Refresh</button>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">
+      Runs are grouped by input dataset: only those that scanned
+      exactly the same files can be compared. The generated report is the
+      interactive one with editable taxonomy per finding (provenance, ASI class, review, notes).
+      No LLM calls — it reads the <code>results.json</code> files already written.
+    </p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 text-sm">
+      <div class="lg:col-span-1">
+        <label class="block font-medium text-slate-600 mb-1">Dataset</label>
+        <select id="cmpGroup" class="w-full border rounded-md px-2 py-1.5"></select>
+        <p id="cmpGroupInfo" class="text-xs text-slate-500 mt-1"></p>
+
+        <label class="block font-medium text-slate-600 mb-1 mt-4">Reference column</label>
+        <select id="cmpRef" class="w-full border rounded-md px-2 py-1.5"></select>
+        <p class="text-xs text-slate-500 mt-1">All other columns are compared against this one
+          (agreement, "any other scanner").</p>
+
+        <label class="block font-medium text-slate-600 mb-1 mt-4">Output folder</label>
+        <input id="cmpOutput" type="text" class="w-full border rounded-md px-2 py-1.5" placeholder="cmp_...">
+        <p class="text-xs text-slate-500 mt-1">Under <code>results/</code>. Regenerating with the same name overwrites it.</p>
+
+        <label class="block font-medium text-slate-600 mb-1 mt-4">Title (optional)</label>
+        <input id="cmpTitle" type="text" class="w-full border rounded-md px-2 py-1.5" placeholder="auto">
+
+        <button id="cmpRun" type="button"
+                class="mt-4 w-full bg-blue-600 text-white rounded-md px-4 py-2 font-medium hover:bg-blue-700 disabled:opacity-50">
+          Generate comparison report
+        </button>
+      </div>
+
+      <div class="lg:col-span-2">
+        <div class="flex items-center justify-between mb-1">
+          <label class="block font-medium text-slate-600">Runs to include</label>
+          <div class="flex gap-2">
+            <button id="cmpAll" type="button" class="text-xs border rounded px-2 py-1 hover:bg-slate-100">All</button>
+            <button id="cmpNone" type="button" class="text-xs border rounded px-2 py-1 hover:bg-slate-100">None</button>
+          </div>
+        </div>
+        <div id="cmpRuns" class="border rounded-md divide-y max-h-[420px] overflow-y-auto"></div>
+        <div id="cmpResult" class="hidden mt-4 border rounded-md p-4 bg-slate-50"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+const VULN_TYPES = [
+  "arbitrary_script_execution","data_exfiltration","supply_chain","credential_exposure",
+  "prompt_hijacking","resource_exhaustion","privilege_escalation","indirect_injection",
+  "guardfall"
+];
+const PHASE_META = {
+  source:      {icon:"📥", name:"source"},
+  red:         {icon:"🔴", name:"red"},
+  blue:        {icon:"🔵", name:"blue"},
+  snyk:        {icon:"🛡️", name:"snyk"},
+  skillspector:{icon:"🟩", name:"skillspector"},
+  cisco:       {icon:"🔷", name:"cisco"},
+  aig:         {icon:"🐉", name:"aig"},
+  skill_vetter:{icon:"📋", name:"skill_vetter"},
+  skills_sh:   {icon:"🌐", name:"skills_sh"},
+  env:         {icon:"🧰", name:"env"},
+  tester:      {icon:"🧪", name:"tester"},
+  eval:        {icon:"🎯", name:"eval"},
+  report:      {icon:"📄", name:"report"},
+};
+// Master list for row creation + ordering (includes every phase any config may
+// emit). Per-config visibility is decided by customPhases().
+// Ordine = ordine di esecuzione dei motori in pipelines/custom.py (Blue per
+// primo perché dispaccia in background snyk/skills.sh, poi i motori LLM).
+const CREATE_ORDER = ["source","red","blue","skillspector","cisco","aig","skill_vetter","snyk","skills_sh","eval","env","tester","report"];
+
+function withSnykOn()         { return !!($("withSnyk") && $("withSnyk").checked); }
+function withSkillspectorOn() { return !!($("withSkillspector") && $("withSkillspector").checked); }
+function withCiscoOn()        { return !!($("withCisco") && $("withCisco").checked); }
+function withAigOn()          { return !!($("withAig") && $("withAig").checked); }
+function withSkillVetterOn()  { return !!($("withSkillVetter") && $("withSkillVetter").checked); }
+function withSkillsShOn()     { return !!($("withSkillsSh") && $("withSkillsSh").checked); }
+function blueOn()             { return !!($("cBlue") && $("cBlue").checked); }
+function skillspectorNoLlmOn(){ return !!($("skillspectorNoLlm") && $("skillspectorNoLlm").checked); }
+function ciscoNoLlmOn()       { return !!($("ciscoNoLlm") && $("ciscoNoLlm").checked); }
+
+// Motori di difesa selezionati, in ordine canonico (lo stesso di
+// pipelines/custom_config.py DEFENSE_ENGINES). Sono difese ALTERNATIVE: nessuna
+// dipende dalle altre, e il confronto fra i loro verdetti si fa a posteriori fra
+// run diverse, non dentro una run sola.
+function defenseEngines() {
+  const sel = [["blue", blueOn()], ["skillspector", withSkillspectorOn()],
+               ["cisco", withCiscoOn()], ["aig", withAigOn()],
+               ["skill_vetter", withSkillVetterOn()], ["snyk", withSnykOn()],
+               ["skills_sh", withSkillsShOn() && cIsSkillsShFolder()]];
+  return sel.filter(([, on]) => on).map(([id]) => id);
+}
+
+// Sottoinsieme di skillspector/cisco da forzare a solo-statico (nessuna variante
+// per aig: è LLM-only, niente da forzare — vedi agents/aig_scanner.py). Letto SOLO
+// se il motore corrispondente è selezionato (gate in syncWithSnykGate).
+function noLlmEngines() {
+  const sel = [["skillspector", skillspectorNoLlmOn()], ["cisco", ciscoNoLlmOn()]];
+  return sel.filter(([, on]) => on).map(([id]) => id);
+}
+
+const $ = id => document.getElementById(id);
+let es = null, running = false, currentPhase = null;
+const phaseEls = {}, phaseStart = {};
+let rawLines = 0;
+
+// ── timestamped default output folder (avoids overwriting past runs) ──
+function nowStamp() {
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+}
+function defaultOutput() { return `results/webui_run_${nowStamp()}`; }
+let autoOutput = "";   // last auto-generated value, to detect manual edits
+
+// ── phase visibility — always derived from the wizard's current state ────
+function visiblePhases() { return customPhases(); }
+function applyPhaseVisibility() {
+  const vis = new Set(visiblePhases());
+  CREATE_ORDER.forEach(k => {
+    const p = phaseEls[k];
+    if (p) p.wrap.style.display = vis.has(k) ? "" : "none";
+  });
+  // Pannello system-prompt: riallinea gli agenti mostrati alla pipeline/config scelta.
+  if (typeof renderPromptsPanel === "function") renderPromptsPanel(false);
+}
+function buildPhaseRows() {
+  Object.keys(phaseEls).forEach(k => delete phaseEls[k]);
+  $("phases").innerHTML = "";
+  CREATE_ORDER.forEach(ensurePhaseRow);  // create every row…
+  applyPhaseVisibility();                // …then hide the ones this pipeline skips
+}
+
+// ── legacy pipeline templates ──────────────────────────────────────────
+// Le 4 pipeline "predefinite" non sono più percorsi separati: sono solo
+// template che pre-valorizzano lo stesso wizard custom (uniforme coi preset
+// salvati). Valori presi dai vecchi default hardcoded delle rispettive
+// pipeline in main.py/pipelines/*.py.
+const LEGACY_TEMPLATES = {
+  full: {
+    source: "red", useSkillInjectBase: true, redDiffs: ["K3"],
+    blue: true, withSnyk: false, withSkillspector: false, withCisco: false, withAig: false, withSkillVetter: false, withSkillsSh: false,
+    eval: true, tester: true, scope: "all",
+  },
+  "red-only": {
+    source: "red", useSkillInjectBase: true,
+    blue: false, withSnyk: false, withSkillspector: false, withCisco: false, withAig: false, withSkillVetter: false, withSkillsSh: false,
+    eval: false, tester: false,
+  },
+  "blue-only": {
+    source: "local_preinjected",
+    blue: true, withSnyk: false, withSkillspector: false, withCisco: false, withAig: false, withSkillVetter: false, withSkillsSh: false,
+    eval: false, tester: false,
+  },
+  "blue-eval": {
+    source: "skill_inject", categories: ["obvious", "contextual"],
+    blue: true, withSnyk: false, withSkillspector: false, withCisco: false, withAig: false, withSkillVetter: false, withSkillsSh: false,
+    eval: true, tester: false,
+  },
+  "blue-eval-testing": {
+    source: "skill_inject", categories: ["obvious", "contextual"],
+    blue: true, withSnyk: false, withSkillspector: false, withCisco: false, withAig: false, withSkillVetter: false, withSkillsSh: false,
+    eval: true, tester: true, scope: "blue_gap_only",
+  },
+};
+
+// Nasconde (non solo disabilita) le sezioni del wizard che una pipeline fissa
+// non usa mai — es. red-only non mostra Defense/Eval/Tester, solo la fonte Red
+// resta configurabile. Derivato dagli stessi flag di LEGACY_TEMPLATES, così non
+// c'è una seconda mappa da tenere sincronizzata.
+function resetStepVisibility() {
+  ["cSrcOptRed", "cSrcOptSkillInject", "cSrcOptLocal", "cSrcOptOnline",
+   "cStepDefense", "cStepEval", "cStepTester"].forEach(id => $(id).classList.remove("hidden"));
+}
+
+function applyStepVisibility(t) {
+  resetStepVisibility();
+  const srcIds = {
+    red: "cSrcOptRed", skill_inject: "cSrcOptSkillInject",
+    local_preinjected: "cSrcOptLocal", online: "cSrcOptOnline",
+  };
+  Object.entries(srcIds).forEach(([src, id]) => {
+    $(id).classList.toggle("hidden", src !== t.source);
+  });
+  const anyThirdParty = t.withSnyk || t.withSkillspector || t.withCisco
+                      || t.withAig || t.withSkillVetter || t.withSkillsSh;
+  $("cStepDefense").classList.toggle("hidden", !(t.blue || anyThirdParty));
+  $("cStepEval").classList.toggle("hidden", !t.eval);
+  $("cStepTester").classList.toggle("hidden", !t.tester);
+}
+
+async function loadLegacyTemplate(kind) {
+  const t = LEGACY_TEMPLATES[kind];
+  if (!t) return;
+  // Azzera stato fonte residuo di un template/preset precedente.
+  cFolderPath = ""; cAllFiles = []; cSelSet.clear();
+  $("cFolder").value = ""; $("cFileSel").classList.add("hidden");
+  const src = document.querySelector(`input[name=cSource][value="${t.source}"]`);
+  if (src) src.checked = true;
+
+  if (t.source === "red") {
+    document.querySelectorAll(".c-red-diff").forEach(cb => cb.checked = !t.redDiffs || t.redDiffs.includes(cb.value));
+    $("cRedKbChk").checked = false;
+    cBuildRedVuln();   // tutte le vuln types selezionate (default)
+    if (t.useSkillInjectBase) await cUseSkillInjectBase();
+  } else if (t.source === "skill_inject") {
+    $("cSiPath").value = "skill-inject";
+    if (!$("cSiSkills").children.length) await cLoadSiSkills();
+    document.querySelectorAll(".c-si-skill").forEach(cb => cb.checked = false);   // nessun filtro → tutte
+    cUpdateSiCount();
+    document.querySelectorAll(".c-si-cat").forEach(cb => cb.checked = (t.categories || []).includes(cb.value));
+  } else if (t.source === "online") {
+    $("cUrls").value = "";
+  }
+  // local_preinjected: nessun default — come il vecchio --input-skills, sempre
+  // obbligatorio, l'utente sceglie la cartella lui stesso.
+
+  $("cBlue").checked = !!t.blue;
+  $("withSnyk").checked = !!t.withSnyk;
+  $("withSkillspector").checked = !!t.withSkillspector;
+  $("withCisco").checked = !!t.withCisco;
+  $("withAig").checked = !!t.withAig;
+  $("withSkillVetter").checked = !!t.withSkillVetter;
+  $("withSkillsSh").checked = !!t.withSkillsSh;
+  // Nessun template legacy usa lo static-only forzato: default off (usa LLM se
+  // disponibile), come il comportamento storico di --with-skillspector/--with-cisco.
+  $("skillspectorNoLlm").checked = false;
+  $("ciscoNoLlm").checked = false;
+  cSyncGating();   // ricalcola eval-gating/tester-mode PRIMA di forzare eval/tester
+  $("cEval").checked = !!t.eval && !$("cEval").disabled;
+  $("cTester").checked = !!t.tester && !$("cTester").disabled;
+  cSyncGating();
+  if (t.scope) {
+    const sc = document.querySelector(`input[name=cScope][value="${t.scope}"]`);
+    if (sc) sc.checked = true;
+  }
+  applyStepVisibility(t);
+  $("cPresetName").value = "";
+  $("cPresetActions").classList.add("hidden");
+}
+
+// ── pipeline dropdown ───────────────────────────────────────────────────
+// Ogni voce (predefinita, "custom (new)…", o preset salvato) finisce nello
+// STESSO wizard custom: cambia solo quali valori lo pre-valorizzano.
+$("pipeline").onchange = async () => {
+  const v = $("pipeline").value;
+  if (v.startsWith("preset:")) {
+    resetStepVisibility();
+    await loadPresetIntoWizard(v.slice("preset:".length));
+    cSyncGating();
+  } else if (v === "custom") {
+    resetStepVisibility();
+    $("cPresetActions").classList.add("hidden");
+    $("cPresetName").value = "";
+    await cOnSourceChange();
+  } else {
+    await loadLegacyTemplate(v);
+  }
+  applyPhaseVisibility();
+};
+
+// skills.sh ha senso solo se la fonte è la cartella locale del dataset
+// skills_sh_dataset (verdetto pre-calcolato lì dentro, meta.json accanto ad
+// ogni SKILL.md) — fuori da lì sarebbe sempre "not in dataset". La riga resta
+// SEMPRE visibile (non nascosta), ma bloccata (disabled, checkbox forzato
+// spento) finché non è selezionata la cartella giusta — vedi syncWithSnykGate.
+function cIsSkillsShFolder() {
+  const folder = (cFolderPath || ($("cFolder") && $("cFolder").value) || "").trim();
+  return cSource() === "local_preinjected" && folder.includes("skills_sh_dataset");
+}
+function cUpdateSkillsShAvailability() {
+  if (!cIsSkillsShFolder()) $("withSkillsSh").checked = false;
+}
+
+// Gate fra motori di difesa. Non dipendono più dal Blue — ognuno è una difesa a
+// sé, selezionabile da sola. Restano due vincoli reali:
+//   • skills.sh: bloccato (disabled, forzato spento) se la cartella scelta non è
+//     quella del dataset skills_sh_dataset (cIsSkillsShFolder) — fuori da lì il
+//     verdetto pre-calcolato non esiste. La riga resta visibile comunque.
+//   • Snyk: ridondante quando skills.sh è attivo, che include già un proprio
+//     motore Snyk (vedi agents/skills_sh_scanner.py) — disabilitato e spento.
+function syncWithSnykGate() {
+  const sshOn = withSkillsShOn();
+  [["withSnyk", "withSnykRow", !sshOn],
+   ["withSkillspector", "withSkillspectorRow", true],
+   ["skillspectorNoLlm", "skillspectorNoLlmRow", withSkillspectorOn()],
+   ["withCisco", "withCiscoRow", true],
+   ["ciscoNoLlm", "ciscoNoLlmRow", withCiscoOn()],
+   ["withAig", "withAigRow", true],
+   ["withSkillVetter", "withSkillVetterRow", true],
+   ["withSkillsSh", "withSkillsShRow", cIsSkillsShFolder()]].forEach(([cbId, rowId, ok]) => {
+    const cb = $(cbId);
+    cb.disabled = !ok;
+    if (!ok) cb.checked = false;
+    $(rowId).classList.toggle("opacity-50", !ok);
+  });
+  $("skillsShHint").classList.toggle("hidden", !sshOn);
+
+  const eng = defenseEngines();
+  $("cDefenseHint").textContent = !eng.length
+    ? "No engine selected: the run only produces the injected skills."
+    : `Running: ${eng.join(", ")}.` + (eng.includes("blue") ? "" :
+        " Blue is off — no patch, so eval and tester are unavailable for this run.");
+}
+// Ogni motore passa da cSyncGating (non solo dall'anteprima fasi): la selezione
+// dei motori adesso decide anche il gate di eval/tester, non solo quali righe
+// di fase mostrare.
+$("withSnyk").onchange = cSyncGating;
+$("withSkillspector").onchange = cSyncGating;
+$("withCisco").onchange = cSyncGating;
+$("withAig").onchange = cSyncGating;
+$("withSkillVetter").onchange = cSyncGating;
+$("withSkillsSh").onchange = cSyncGating;
+
+// ── model selector (OpenRouter) ──────────────────────────────────────
+let allModels = [], selectedModel = null;
+const fmtPrice = v => v == null ? "n/a" : ("$" + Number(v).toFixed(2));
+// cache_read/cache_write per modello (dal /api/model-pricing, lazy on select).
+// undefined = mai richiesto; null = richiesta in volo o nessun prezzo cache.
+const cachePriceCache = {};
+// Endpoint/provider list per modello (dal /api/model-pricing) + provider esclusi
+// dal routing (selezionati via checkbox). providerModelId = modello per cui il set
+// corrente vale, così il cambio modello azzera la selezione.
+const endpointsCache = {};
+let excludedProviders = new Set();
+let providerModelId = null;
+function providerIgnoreCsv() { return [...excludedProviders].join(","); }
+function renderProviders(endpoints) {
+  const wrap = $("providerExclude"), list = $("providerList");
+  const names = [...new Set((endpoints || []).map(e => e && e.provider_name).filter(Boolean))];
+  list.innerHTML = "";
+  if (names.length < 2) { wrap.classList.add("hidden"); return; }  // niente da escludere se ≤1
+  names.forEach(n => {
+    const id = "prov_" + n.replace(/\W+/g, "_");
+    const lab = document.createElement("label");
+    lab.className = "inline-flex items-center gap-1 cursor-pointer text-slate-600";
+    lab.innerHTML = `<input type="checkbox" id="${id}" class="align-middle"> <span>${esc(n)}</span>`;
+    const cb = lab.querySelector("input");
+    cb.checked = excludedProviders.has(n);
+    cb.onchange = () => { cb.checked ? excludedProviders.add(n) : excludedProviders.delete(n); };
+    list.appendChild(lab);
+  });
+  wrap.classList.remove("hidden");
+}
+function modelInfoText(m, cheap) {
+  const p = m.pricing || {};
+  let s = `${m.id} · in ${fmtPrice(p.prompt)}/1M · out ${fmtPrice(p.completion)}/1M`;
+  if (cheap) {
+    s += ` · cache rd ${fmtPrice(cheap.cache_read)}/1M · cache wr ${fmtPrice(cheap.cache_write)}/1M`;
+  }
+  return s;
+}
+function selectModel(m) {
+  selectedModel = m;
+  const info = $("modelInfo");
+  if (!m) {
+    $("modelSearch").value = "";
+    info.textContent = "";
+    info.classList.add("hidden");
+    $("providerExclude").classList.add("hidden");
+    return;
+  }
+  // Cambio modello → azzera la selezione dei provider esclusi (i provider di un
+  // modello non valgono per un altro).
+  if (m.id !== providerModelId) { excludedProviders = new Set(); providerModelId = m.id; }
+  $("modelSearch").value = m.name;
+  info.textContent = modelInfoText(m, cachePriceCache[m.id]);
+  info.classList.remove("hidden");
+  // Provider già noti → render subito; altrimenti li porta la fetch qui sotto.
+  if (endpointsCache[m.id]) renderProviders(endpointsCache[m.id]);
+  else $("providerExclude").classList.add("hidden");
+  // Lazy-fetch cache pricing (cheapest endpoint) + lista provider, una volta sola.
+  if (m.id && cachePriceCache[m.id] === undefined) {
+    cachePriceCache[m.id] = null;   // mark in-flight
+    fetch(`/api/model-pricing?model=${encodeURIComponent(m.id)}`)
+      .then(r => r.json())
+      .then(d => {
+        cachePriceCache[m.id] = (d && d.cheapest) || null;
+        endpointsCache[m.id] = (d && d.endpoints) || [];
+        if (selectedModel && selectedModel.id === m.id) {
+          info.textContent = modelInfoText(m, cachePriceCache[m.id]);
+          renderProviders(endpointsCache[m.id]);
+        }
+      })
+      .catch(() => {});
+  }
+}
+function showModelSuggest() {
+  const q = $("modelSearch").value.trim().toLowerCase();
+  const matchesAll = allModels.filter(m => (m.name + " " + m.id).toLowerCase().includes(q));
+  const matches = matchesAll.slice(0, 50);   // cap the rendered list
+  const box = $("modelSuggest");
+  box.innerHTML = "";
+  if (!matchesAll.length) { box.classList.add("hidden"); return; }
+  matches.forEach(m => {
+    const p = m.pricing || {};
+    const it = document.createElement("div");
+    it.className = "px-2.5 py-1.5 hover:bg-blue-50 cursor-pointer log-line";
+    it.innerHTML = `<span class="font-medium">${esc(m.name)}</span>`
+                 + ` <span class="text-slate-400">· in ${fmtPrice(p.prompt)} · out ${fmtPrice(p.completion)} /1M</span>`;
+    // mousedown (not click) so it fires before the input blurs
+    it.onmousedown = e => { e.preventDefault(); selectModel(m); box.classList.add("hidden"); };
+    box.appendChild(it);
+  });
+  box.classList.remove("hidden");
+}
+let defaultModel = null;   // .env default, preselected on load; "default" button restores it
+$("modelReset").onclick = () => { selectModel(defaultModel); $("modelSuggest").classList.add("hidden"); };
+$("modelSearch").addEventListener("input", () => {
+  // typing invalidates a prior pick until one is re-selected from the list
+  selectedModel = null; $("modelInfo").classList.add("hidden");
+  showModelSuggest();
+});
+$("modelSearch").addEventListener("focus", showModelSuggest);
+document.addEventListener("click", e => {
+  if (!$("modelPicker").contains(e.target)) $("modelSuggest").classList.add("hidden");
+});
+Promise.all([
+  fetch("/api/models").then(r => r.json()).catch(() => []),
+  fetch("/api/default-model").then(r => r.json()).catch(() => ({})),
+]).then(([list, def]) => {
+  allModels = Array.isArray(list) ? list : [];
+  if (!allModels.length) {
+    $("modelSearch").placeholder = "No OpenRouter catalog (set OPENROUTER_API_KEY)";
+  }
+  // Preselect + show the .env default so the user sees what will run. If it's in
+  // the OpenRouter catalog we get its pricing too; otherwise show it as-is.
+  const id = def && def.model;
+  if (id) {
+    defaultModel = allModels.find(m => m.id === id)
+                 || { id, name: id, pricing: { prompt: null, completion: null } };
+    selectModel(defaultModel);
+  } else if (!allModels.length) {
+    $("modelSearch").disabled = true;
+    $("modelReset").classList.add("hidden");
+  }
+}).catch(() => {});
+
+
+// ── phase rows ──
+// Build a ▸ item line that wraps and is capped at ~120 chars. The full text is
+// always in the DOM (just CSS-hidden) behind a "… show more" inline toggle.
+function makeCappedLine(text) {
+  const div = document.createElement("div");
+  div.className = "item-line text-xs text-slate-500 log-line";
+  if (text.length > 120) {
+    const rest = document.createElement("span");
+    rest.className = "hidden"; rest.textContent = text.slice(120);
+    const tog = document.createElement("button");
+    tog.type = "button"; tog.className = "text-blue-600 hover:underline ml-1";
+    tog.textContent = "… show more";
+    tog.onclick = () => {
+      const hidden = rest.classList.toggle("hidden");
+      tog.textContent = hidden ? "… show more" : " show less";
+    };
+    div.append(document.createTextNode(text.slice(0, 120)), rest, tog);
+  } else {
+    div.textContent = text;
+  }
+  return div;
+}
+function ensurePhaseRow(key) {
+  if (phaseEls[key]) return phaseEls[key];
+  const meta = PHASE_META[key] || {icon:"•", name:key};
+  const wrap = document.createElement("div");
+  wrap.className = "rounded-md";
+  wrap.innerHTML = `
+    <div class="phrow flex items-center gap-3 px-2 py-1.5 rounded-md">
+      <span class="text-lg w-6 text-center">${meta.icon}</span>
+      <span class="font-medium w-20">${meta.name}</span>
+      <span class="status w-6 text-center text-slate-400">·</span>
+      <span class="counter text-xs text-slate-500 w-16"></span>
+      <span class="cur text-xs text-slate-400 log-line flex-1 min-w-0 truncate"></span>
+      <span class="elapsed text-xs text-slate-400 tabular-nums w-14 text-right"></span>
+    </div>
+    <div class="items hidden pl-11 pr-2 pb-1.5 space-y-0.5"></div>`;
+  // Keep rows the current pipeline doesn't use hidden, even if created mid-run.
+  if (!visiblePhases().includes(key)) wrap.style.display = "none";
+  $("phases").appendChild(wrap);
+  const phrow = wrap.querySelector(".phrow");
+  return phaseEls[key] = {
+    wrap, row: phrow,
+    status:  phrow.querySelector(".status"),
+    counter: phrow.querySelector(".counter"),
+    cur:     phrow.querySelector(".cur"),
+    items:   wrap.querySelector(".items"),
+    elapsed: phrow.querySelector(".elapsed"),
+    done: false,
+  };
+}
+function setStatus(key, state) {
+  const p = ensurePhaseRow(key);
+  if (state === "running") {
+    p.status.innerHTML = `<span class="spinner"></span>`;
+    p.row.classList.add("bg-blue-50");
+  } else if (state === "done") {
+    p.status.textContent = "✓";
+    p.status.className = "status w-6 text-center text-emerald-600 font-bold";
+    p.row.classList.remove("bg-blue-50");
+    p.done = true;
+  }
+}
+// Phase timing is anchored to the wall-clock timestamp embedded in the streamed
+// banner line ("● [HH:MM:SS] …"), not Date.now(). Since the server replays those
+// lines on reconnect, durations survive a page refresh instead of restarting.
+let lastBannerMs = 0;   // most recent banner timestamp seen (fallback end-time)
+function tsToMs(ts) {
+  if (!ts) return 0;
+  const [h, m, s] = ts.split(":").map(Number);
+  const d = new Date(); d.setHours(h, m, s, 0); return d.getTime();
+}
+function parseHms(str) {   // "3s" | "1m 5s" | "1h 2m 3s" → seconds
+  if (!str) return null;
+  const h = str.match(/(\d+)\s*h/), m = str.match(/(\d+)\s*m/), s = str.match(/(\d+)\s*s/);
+  if (!h && !m && !s) return null;
+  return (h ? +h[1]*3600 : 0) + (m ? +m[1]*60 : 0) + (s ? +s[1] : 0);
+}
+function activatePhase(key, tsStr) {
+  const ms = tsToMs(tsStr);
+  if (ms) lastBannerMs = ms;
+  if (currentPhase && currentPhase !== key && !phaseEls[currentPhase]?.done) {
+    // close the previous phase at this banner's timestamp (refresh-safe end)
+    const start = phaseStart[currentPhase];
+    markDone(currentPhase, (ms && start) ? (ms - start) / 1000 : null);
+  }
+  currentPhase = key;
+  ensurePhaseRow(key);
+  phaseStart[key] = ms || Date.now();
+  setStatus(key, "running");
+}
+function markDone(key, durSeconds) {
+  if (!key) return;
+  const p = ensurePhaseRow(key);
+  if (p.done) return;
+  setStatus(key, "done");
+  let secs = durSeconds;
+  if (secs == null && phaseStart[key]) {
+    // No explicit duration: freeze against the last stream timestamp (stays put
+    // on refresh) rather than Date.now() (which would keep growing).
+    const end = Math.max(lastBannerMs || 0, phaseStart[key], 0) || Date.now();
+    secs = Math.max(0, (end - phaseStart[key]) / 1000);
+  }
+  if (secs != null) p.elapsed.textContent = fmt(secs);
+}
+function fmt(s){ s=Math.round(s); return s>=60 ? `${Math.floor(s/60)}m ${s%60}s` : `${s}s`; }
+
+// live elapsed for the running phase (anchored to its banner timestamp)
+setInterval(() => {
+  if (currentPhase && phaseStart[currentPhase] && !phaseEls[currentPhase]?.done)
+    phaseEls[currentPhase].elapsed.textContent = fmt(Math.max(0, (Date.now()-phaseStart[currentPhase])/1000));
+}, 500);
+
+// ── alerts ──
+function addAlert(text, kind) {
+  $("alertsCard").classList.remove("hidden");
+  const d = document.createElement("div");
+  d.className = kind === "error" ? "text-rose-600" : "text-amber-600";
+  d.textContent = text;
+  $("alerts").appendChild(d);
+}
+
+// ── raw log ──
+function pushRaw(line) {
+  const pre = $("rawLog");
+  pre.textContent += line + "\n";
+  rawLines++; $("rawCount").textContent = rawLines + " lines";
+  pre.scrollTop = pre.scrollHeight;
+}
+
+// ── line router (mirrors cli_output.py prefixes) ──
+const RE_PHASE = /^●\s*\[(\d{2}:\d{2}:\d{2})\]\s+(\w+)/;   // [1]=HH:MM:SS [2]=name
+const RE_DONE  = /✓\s*done(?:\s+in\s+(.+?))?\s*$/;          // [1]="3s" / "1m 5s" …
+const RE_ITEM  = /^▸\s+(.*)$/;
+const RE_NM    = /(\d+)\s*\/\s*(\d+)/;
+// Footer summary line. Labels vary by pipeline (full/blue-only → "detected · ASR
+// pre · ASR post"; blue-eval → "caught · detection · precision"), so we just detect
+// the line and echo it verbatim rather than hard-coding the labels.
+const RE_STATS = /^injections\s+\d+\s*·/;
+
+function handleLine(line) {
+  pushRaw(line);
+  const trimmed = line.trim();
+
+  let m;
+  if ((m = line.match(RE_PHASE))) { activatePhase(m[2], m[1]); return; }
+
+  if (trimmed.startsWith("⚠")) { addAlert(trimmed, "warn"); return; }
+  if (trimmed.startsWith("✗")) { addAlert(trimmed, "error"); return; }
+
+  if ((m = trimmed.match(RE_DONE))) { markDone(currentPhase, parseHms(m[1])); return; }
+
+  if ((m = trimmed.match(RE_ITEM))) {
+    const txt = m[1];
+    if (currentPhase) {
+      const p = ensurePhaseRow(currentPhase);
+      p.cur.textContent = txt;                     // latest item, truncated in the row
+      p.items.classList.remove("hidden");
+      p.items.appendChild(makeCappedLine("▸ " + txt));   // wrapping, capped, show-more
+      const nm = txt.match(RE_NM);
+      if (nm) p.counter.textContent = nm[1] + "/" + nm[2];
+    }
+    return;
+  }
+
+  if (line.includes("SkillSecurer run complete")) { finish(0); return; }
+
+  if (RE_STATS.test(trimmed)) {
+    $("finStats").textContent = trimmed;
+    return;
+  }
+}
+
+// ── progress bar ──
+function updateBar(done, total, label) {
+  if (currentPhase !== "tester") activatePhase("tester");
+  $("barWrap").classList.remove("hidden");
+  const pct = total ? Math.min(100, Math.round(done/total*100)) : 0;
+  $("bar").style.width = pct + "%";
+  $("barPct").textContent = pct + "%";
+  $("barCount").textContent = `${done}/${total}`;
+  if (label) $("barLabel").textContent = label;
+  const p = ensurePhaseRow("tester");
+  p.counter.textContent = `${done}/${total}`;
+}
+
+// ── finish ──
+let finished = false;
+// run_id of the run currently starting/running, set in resetUI() from the
+// --output folder name — lets the report button link to /report/<run_id>
+// (same specific route used by History) instead of the stateful generic
+// /report, which only ever reflects whatever run last set it server-side.
+let currentRunId = null;
+function finish(code, report) {
+  if (finished) return; finished = true;
+  markDone(currentPhase);
+  // any phase still not done → mark done (run is over)
+  CREATE_ORDER.forEach(k => { if (phaseEls[k] && !phaseEls[k].done) markDone(k); });
+  running = false;
+  $("liveDot").classList.add("hidden");
+  $("runBtn").disabled = false;
+  $("stopBtn").disabled = true;
+
+  const box = $("finishBox");
+  box.classList.remove("hidden");
+  const ok = (code === 0 || code === undefined);
+  box.classList.add(ok ? "border-emerald-500" : "border-rose-500",
+                    "bg-white");
+  $("finTitle").textContent = ok ? "✓ SkillSecurer run complete" : `✗ Run exited (code ${code})`;
+  $("finTitle").className = "font-semibold " + (ok ? "text-emerald-700" : "text-rose-700");
+
+  // report link — same /report/<run_id> route History uses, so the button
+  // always points at (and its existence check always matches) the report
+  // for THIS run, not whatever the generic /report route currently resolves to.
+  const reportUrl = currentRunId ? "/report/" + encodeURIComponent(currentRunId) : "/report";
+  $("reportBtn").href = reportUrl;
+  fetch(reportUrl, {method:"HEAD"}).then(r => {
+    if (r.ok) {
+      $("reportBtn").classList.remove("hidden");
+      if (report) $("finPath").textContent = report;
+    }
+  }).catch(()=>{});
+}
+
+// ── live token / cost panel ──
+const fmtTok = n => {
+  n = Number(n || 0);
+  if (n >= 1e6) return (n/1e6).toFixed(1) + "M";
+  if (n >= 1e3) return (n/1e3).toFixed(1) + "K";
+  return String(Math.round(n));
+};
+// Breakdown provider {nome: n_chiamate} → "DeepSeek ×4" / "DeepSeek ×3, StreamLake ×1".
+const fmtProv = d => {
+  const items = Object.entries(d || {}).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return items.length ? items.map(([n, c]) => `${esc(n)} ×${c}`).join(", ") : "—";
+};
+function updateTokens(d) {
+  $("tokensCard").classList.remove("hidden");
+  $("tokIn").textContent    = fmtTok(d.input_tokens);
+  $("tokOut").textContent   = fmtTok(d.output_tokens);
+  $("tokTotal").textContent = fmtTok(d.total_tokens);
+  $("tokCalls").textContent = d.calls || 0;
+  // "≈" solo per la STIMA da prezzi: il costo OpenRouter è quello fatturato.
+  $("tokCost").textContent  = (d.estimated_cost_usd == null)
+    ? ""
+    : (d.cost_source === "openrouter" ? "$" : "≈ $")
+      + Number(d.estimated_cost_usd).toFixed(2);
+
+  // Contesto: modello risolto (quello che gira davvero, scanner esterni inclusi),
+  // provider esclusi dal routing, origine del costo mostrato.
+  const meta = [];
+  if (d.model) meta.push(`model <span class="font-mono">${esc(d.model)}</span>`);
+  if (d.provider_ignore && d.provider_ignore.length)
+    meta.push(`excluded: ${d.provider_ignore.map(esc).join(", ")}`);
+  if (d.cost_source) meta.push(d.cost_source === "openrouter"
+    ? "cost: real (OpenRouter usage)" : "cost: estimate (catalog prices)");
+  $("tokMeta").innerHTML = meta.join(" · ");
+
+  const by = d.by_agent || {};
+  const rows = Object.keys(by)
+    .filter(a => by[a] && (by[a].calls || by[a].total_tokens))
+    .sort((a, b) => (by[b].total_tokens || 0) - (by[a].total_tokens || 0))
+    .map(a => {
+      const v = by[a];
+      return `<tr class="border-b border-slate-100">
+        <td class="py-1 font-mono">${esc(a)}</td>
+        <td class="py-1 text-right tabular-nums">${v.calls || 0}</td>
+        <td class="py-1 text-right tabular-nums">${fmtTok(v.input_tokens)}</td>
+        <td class="py-1 text-right tabular-nums">${fmtTok(v.output_tokens)}</td>
+        <td class="py-1 text-right tabular-nums">${fmtTok(v.total_tokens)}</td>
+        <td class="py-1 text-left pl-2 text-slate-500">${fmtProv(v.providers)}</td></tr>`;
+    }).join("");
+  $("tokAgents").innerHTML = rows || `<tr><td class="py-1 text-slate-400" colspan="6">no usage yet</td></tr>`;
+
+  // Riga totale: il breakdown provider GLOBALE arrivava già nel payload ma non
+  // era mostrato da nessuna parte (solo quello per-agente).
+  const foot = $("tokTotalRow");
+  if (rows) {
+    foot.classList.remove("hidden");
+    foot.innerHTML = `<tr class="border-t border-slate-300 font-semibold">
+      <td class="py-1">total</td>
+      <td class="py-1 text-right tabular-nums">${d.calls || 0}</td>
+      <td class="py-1 text-right tabular-nums">${fmtTok(d.input_tokens)}</td>
+      <td class="py-1 text-right tabular-nums">${fmtTok(d.output_tokens)}</td>
+      <td class="py-1 text-right tabular-nums">${fmtTok(d.total_tokens)}</td>
+      <td class="py-1 text-left pl-2 font-normal text-slate-500">${fmtProv(d.providers)}</td></tr>`;
+  } else {
+    foot.classList.add("hidden");
+    foot.innerHTML = "";
+  }
+}
+
+// ── SSE wiring ──
+function openStream() {
+  if (es) es.close();
+  es = new EventSource("/stream");
+  es.onmessage = ev => {
+    let d; try { d = JSON.parse(ev.data); } catch { return; }
+    if (d.t === "line")      handleLine(d.l);
+    else if (d.t === "progress") updateBar(d.done, d.total, d.label);
+    else if (d.t === "tokens") updateTokens(d);
+    else if (d.t === "end")  { finish(d.code, d.report); es.close(); }
+    else if (d.t === "status" && d.running) { running = true; $("liveDot").classList.remove("hidden"); }
+  };
+  es.onerror = () => { /* keepalive/reconnect handled by browser */ };
+}
+
+// ── custom pipeline wizard ───────────────────────────────────────────
+function cSource() {
+  const r = document.querySelector('input[name=cSource]:checked');
+  return r ? r.value : "red";
+}
+// Ground truth nota → eval ammesso. red/skill_inject: sempre (la fonte la genera).
+// local_preinjected: solo se la cartella scelta porta un JSON di ground truth.
+function cGroundTruth() {
+  const s = cSource();
+  if (s === "red" || s === "skill_inject") return true;
+  if (s === "local_preinjected") return cFolderHasGt;
+  return false;
+}
+
+function customPhases() {
+  const s = cSource();
+  const ev = $("cEval").checked && !$("cEval").disabled;
+  const tester = $("cTester").checked && !$("cTester").disabled;
+  const ph = [s === "red" ? "red" : "source"];
+  // Una fase per motore selezionato: nessuno è più annidato sotto il Blue.
+  defenseEngines().forEach(e => ph.push(e));
+  if (ev) ph.push("eval");
+  if (tester) { ph.push("env"); ph.push("tester"); }
+  ph.push("report");
+  return ph;
+}
+
+// Live gating: applica la matrice di validità a ogni cambio (disabilita+spiega).
+function cSyncGating() {
+  const s = cSource(), blue = $("cBlue").checked;
+  $("cFolderPicker").classList.toggle("hidden", !(s === "red" || s === "local_preinjected"));
+  $("cSiBase").classList.toggle("hidden", s !== "red");   // base skill-inject: solo per il Red
+  $("cRedDiff").classList.toggle("hidden", s !== "red");  // difficoltà injection: solo per il Red
+  $("cRedKb").classList.toggle("hidden", s !== "red");    // profilo KB skill-inject: solo per il Red
+  // vuln types: solo per il Red e SOLO se la KB skill-inject è spenta (la KB porta
+  // la propria tassonomia a 8 classi → il selettore "nostro" andrebbe in conflitto).
+  const kbOn = $("cRedKbChk") && $("cRedKbChk").checked;
+  $("cRedVuln").classList.toggle("hidden", s !== "red" || kbOn);
+  $("cSiPicker").classList.toggle("hidden", s !== "skill_inject");
+  $("cUrlPicker").classList.toggle("hidden", s !== "online");
+  $("cSourceGt").textContent = cGroundTruth()
+    ? (s === "local_preinjected"
+        ? `Ground truth: JSON found (${cFolderGtFile}) → eval available (with Blue on).`
+        : "Ground truth: known → eval available (with Blue on).")
+    : (s === "local_preinjected"
+        ? "Ground truth: no JSON in the folder → eval unavailable (add a filename→injection JSON)."
+        : "Ground truth: unknown → eval unavailable for this source.");
+
+  const evalOk = cGroundTruth() && blue;
+  const ev = $("cEval");
+  ev.disabled = !evalOk;
+  if (!evalOk) ev.checked = false;
+  ev.parentElement.classList.toggle("opacity-50", !evalOk);
+  $("cEvalHint").textContent = evalOk
+    ? "Evaluates the Blue's findings against the ground truth (Tier 1 fuzzy + Tier 2 LLM)."
+    : (!cGroundTruth()
+        ? (s === "local_preinjected"
+            ? "Disabled: no ground truth JSON in the chosen folder."
+            : "Disabled: source without ground truth (local_preinjected / online).")
+        : "Disabled: requires the Blue engine (the eval scores ITS findings against the ground truth).");
+
+  // Tester: bloccato con una difesa di soli motori terzi — nessuno di loro
+  // patcha, quindi non esiste una FIXED da testare. Resta ammesso a difesa
+  // vuota (two-way sulla sola INJECTED). Stessa regola del gate backend in
+  // pipelines/custom_config.py validate_config.
+  const thirdPartyOnly = defenseEngines().length > 0 && !blue;
+  const tst = $("cTester");
+  tst.disabled = thirdPartyOnly;
+  if (thirdPartyOnly) tst.checked = false;
+  tst.parentElement.classList.toggle("opacity-50", thirdPartyOnly);
+  const tester = tst.checked;
+  $("cTesterMode").textContent = thirdPartyOnly
+    ? "Disabled: third-party engines don't patch, so there's no FIXED version to test. Add Blue, or turn the other engines off."
+    : (!tester ? ""
+       : (blue ? "Three-way mode (BASE → INJECTED → FIXED)."
+               : "Two-way mode (BASE → INJECTED); scope not applicable."));
+  const scopeOn = tester && blue;
+  $("cScopeWrap").classList.toggle("hidden", !scopeOn);
+  if (!scopeOn) { const a = document.querySelector('input[name=cScope][value=all]'); if (a) a.checked = true; }
+  $("cAttemptsWrap").classList.toggle("hidden", !tester);   // max attempts: solo col tester
+  $("cInjAwareWrap").classList.toggle("hidden", !tester);   // injection-aware: solo col tester
+  cUpdateSkillsShAvailability();   // riga skills.sh: visibile solo su cartella skills_sh_dataset
+  syncWithSnykGate();
+  applyPhaseVisibility();   // anteprima live delle fasi che gireranno
+  renderAgentModelsPanel(false);   // idem per il pannello "model per agent"
+}
+
+// Folder picker WSL (confine: SSE_BROWSE_ROOT, def /). Si naviga SOLO tra cartelle;
+// scelta la cartella → /api/list-md raccoglie ricorsivamente i .md → checklist
+// IN-FLOW con filtro (alcuni/tutti/nessuno). In-flow (non dropdown assoluto) così
+// non si sovrappone mai al pannello risultati.
+let cBrowseCwd = "", cFolderPath = "", cAllFiles = [];
+// local_preinjected: true se la cartella scelta contiene un JSON di ground truth
+// (mappa nome-file → injection). Sblocca l'eval per questa fonte.
+let cFolderHasGt = false, cFolderGtFile = null;
+const cSelSet = new Set();
+
+async function cBrowseNav(path) {
+  const err = $("cFolderErr"); err.classList.add("hidden");
+  let d;
+  try { d = await (await fetch("/api/browse?path=" + encodeURIComponent(path || ""))).json(); }
+  catch { err.textContent = "request failed"; err.classList.remove("hidden"); return; }
+  if (d.error) { err.textContent = d.error; err.classList.remove("hidden"); return; }
+  cBrowseCwd = d.path; $("cFolder").value = d.path;
+  cUpdateSkillsShAvailability();   // path cambiato (anche solo navigando, non ancora "Use folder")
+  cRenderCrumbs(d.root || "/");
+  const box = $("cDirs"); box.innerHTML = "";
+  const up = document.createElement("button");
+  up.type = "button"; up.className = "block text-left text-xs text-blue-600 hover:underline";
+  up.textContent = "📁 .. (up)";
+  up.onclick = () => cBrowseNav(d.path.replace(/\/[^/]*$/, "") || "/");
+  box.appendChild(up);
+  (d.dirs || []).forEach(name => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "block w-full text-left text-xs text-blue-600 hover:underline log-line truncate";
+    b.textContent = "📁 " + name; b.onclick = () => cBrowseNav(d.path + "/" + name);
+    box.appendChild(b);
+  });
+  if (!d.dirs.length) { const e = document.createElement("div"); e.className = "text-xs text-slate-400"; e.textContent = "(no sub-folders)"; box.appendChild(e); }
+}
+function cRenderCrumbs(root) {
+  const c = $("cCrumbs"); c.innerHTML = "";
+  const rel = cBrowseCwd.startsWith(root) ? cBrowseCwd.slice(root.length) : "";
+  const segs = rel.split("/").filter(Boolean);
+  const crumbs = [{ label: "📁 " + (root.split("/").filter(Boolean).pop() || "/"), path: root }];
+  let acc = root;
+  segs.forEach(s => { acc = acc + "/" + s; crumbs.push({ label: s, path: acc }); });
+  crumbs.forEach((cr, i) => {
+    if (i) { const sep = document.createElement("span"); sep.className = "text-slate-300"; sep.textContent = "/"; c.appendChild(sep); }
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "hover:underline text-blue-600 log-line"; b.textContent = cr.label;
+    b.onclick = () => cBrowseNav(cr.path); c.appendChild(b);
+  });
+}
+$("cFolderBrowse") && ($("cFolderBrowse").onclick = () => {
+  const pnl = $("cBrowsePanel"); const open = pnl.classList.contains("hidden");
+  pnl.classList.toggle("hidden");
+  if (open) cBrowseNav($("cFolder").value.trim() || "");
+});
+
+// Popola la checklist a partire da {path, files} (default: tutti selezionati).
+function cApplyFiles(d, emptyMsg) {
+  const err = $("cFolderErr"); err.classList.add("hidden");
+  cFolderPath = d.path; $("cFolder").value = d.path;
+  cFolderHasGt = !!d.ground_truth; cFolderGtFile = d.ground_truth_file || null;
+  cAllFiles = d.files || [];
+  cSelSet.clear(); cAllFiles.forEach(f => cSelSet.add(f));   // default: tutti selezionati
+  $("cFileSkillOnly").checked = false;
+  $("cBrowsePanel").classList.add("hidden");
+  $("cFileSel").classList.remove("hidden");
+  $("cFileCount").textContent = String(cAllFiles.length);
+  $("cFileSearch").value = "";
+  if (!cAllFiles.length) { err.textContent = emptyMsg || "No .md files found."; err.classList.remove("hidden"); }
+  cRenderFileList();
+  cSyncGating();   // ground truth della cartella → ri-gating dell'eval
+  applyPhaseVisibility();
+}
+// Raccoglie ricorsivamente i .md della cartella.
+async function cUseFolder(folder) {
+  const err = $("cFolderErr"); err.classList.add("hidden");
+  let d;
+  try { d = await (await fetch("/api/list-md?path=" + encodeURIComponent(folder))).json(); }
+  catch { err.textContent = "request failed"; err.classList.remove("hidden"); return; }
+  if (d.error) { err.textContent = d.error; err.classList.remove("hidden"); return; }
+  cApplyFiles(d, "No .md files found in this folder.");
+}
+// Usa le SKILL.md base pulite di skill-inject come input del Red.
+async function cUseSkillInjectBase() {
+  const err = $("cFolderErr"); err.classList.add("hidden");
+  let d;
+  try { d = await (await fetch("/api/skill-inject-base")).json(); }
+  catch { err.textContent = "request failed"; err.classList.remove("hidden"); return; }
+  if (d.error) { err.textContent = d.error; err.classList.remove("hidden"); return; }
+  cApplyFiles(d, "No base SKILL.md found in skill-inject.");
+}
+// Checklist in-flow: filtrata dalla search, selezione persistita in cSelSet.
+function cRenderFileList() {
+  const q = $("cFileSearch").value.trim().toLowerCase();
+  const box = $("cFileList"); box.innerHTML = "";
+  const shown = cAllFiles.filter(f => f.toLowerCase().includes(q));
+  if (!shown.length) {
+    box.innerHTML = '<div class="text-slate-400">' + (cAllFiles.length ? "(no match)" : "(no .md)") + '</div>';
+  }
+  shown.forEach(f => {
+    const lab = document.createElement("label");
+    lab.className = "flex items-center gap-1.5 cursor-pointer min-w-0";
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.className = "shrink-0"; cb.checked = cSelSet.has(f);
+    cb.onchange = () => { $("cFileSkillOnly").checked = false; cb.checked ? cSelSet.add(f) : cSelSet.delete(f); cUpdateFileCount(); };
+    const sp = document.createElement("span"); sp.className = "log-line truncate min-w-0"; sp.textContent = f; sp.title = f;
+    lab.append(cb, sp); box.appendChild(lab);
+  });
+  cUpdateFileCount();
+}
+function cUpdateFileCount() { $("cFileSelCount").textContent = String(cSelSet.size); }
+// selected_files = path RELATIVI alla cartella scelta; l'orchestratore fa folder/f.
+function cSelectedFiles() { return [...cSelSet]; }
+
+async function cLoadSiSkills() {
+  const box = $("cSiSkills"); box.innerHTML = '<div class="text-slate-400">loading…</div>';
+  const keep = new Set(cSelectedSiSkills());
+  let list = [];
+  try { list = await (await fetch("/api/skill-inject-skills")).json(); } catch {}
+  box.innerHTML = "";
+  if (!list.length) { box.innerHTML = '<div class="text-slate-400 col-span-2">(none — is skill-inject present?)</div>'; return; }
+  list.forEach(s => {
+    const lab = document.createElement("label");
+    lab.className = "flex items-center gap-1.5 cursor-pointer min-w-0";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "c-si-skill shrink-0"; cb.value = s; cb.checked = keep.has(s);
+    cb.onchange = cUpdateSiCount;
+    const sp = document.createElement("span"); sp.className = "log-line truncate min-w-0"; sp.textContent = s;
+    lab.append(cb, sp); box.appendChild(lab);
+  });
+  $("cSiCount").textContent = String(list.length);
+  cUpdateSiCount();
+}
+function cSelectedSiSkills() { return [...document.querySelectorAll('.c-si-skill:checked')].map(b => b.value); }
+function cUpdateSiCount() { $("cSiSelCount").textContent = String(cSelectedSiSkills().length); }
+
+// Red: checklist delle tipologie di vulnerabilità (da VULN_TYPES), default tutte.
+function cBuildRedVuln() {
+  const box = $("cRedVulnBox"); box.innerHTML = "";
+  VULN_TYPES.forEach(v => {
+    const lab = document.createElement("label");
+    lab.className = "flex items-center gap-1.5 cursor-pointer min-w-0";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "c-red-vuln shrink-0"; cb.value = v; cb.checked = true;
+    cb.onchange = cUpdateRedVulnCount;
+    const sp = document.createElement("span"); sp.className = "log-line truncate min-w-0"; sp.textContent = v;
+    lab.append(cb, sp); box.appendChild(lab);
+  });
+  $("cRedVulnCount").textContent = String(VULN_TYPES.length);
+  cUpdateRedVulnCount();
+}
+function cSelectedRedVuln() { return [...document.querySelectorAll('.c-red-vuln:checked')].map(b => b.value); }
+function cUpdateRedVulnCount() { $("cRedVulnSel").textContent = String(cSelectedRedVuln().length); }
+
+function buildCustomConfig(name) {
+  const s = cSource();
+  const src = { type: s };
+  if (s === "red" || s === "local_preinjected") {
+    src.local_folder_path = cFolderPath || $("cFolder").value.trim();
+    src.selected_files = cSelectedFiles();
+    if (s === "red") {
+      const dd = [...document.querySelectorAll('.c-red-diff:checked')].map(b => b.value);
+      src.red_difficulties = dd.length ? dd : null;   // null/[] = tutte
+      const kbOn = $("cRedKbChk").checked;
+      src.use_skill_inject_kb = kbOn;                  // 8 classi paper + KB esempi
+      // Con la KB attiva la tassonomia è quella del paper → il filtro vuln "nostro"
+      // non si applica (verrebbe ignorato dal backend). Lo azzeriamo per chiarezza.
+      const vv = cSelectedRedVuln();
+      src.red_vuln_types = (kbOn || !vv.length) ? null : vv;  // null/[] = tutte
+    }
+  } else if (s === "skill_inject") {
+    src.skill_inject_categories = [...document.querySelectorAll('.c-si-cat:checked')].map(b => b.value);
+    const sk = cSelectedSiSkills(); src.skill_inject_skills = sk.length ? sk : null;
+    src.skill_inject_path = $("cSiPath").value.trim() || "skill-inject";
+  } else if (s === "online") {
+    src.urls = $("cUrls").value.split("\n").map(u => u.trim()).filter(Boolean);
+  }
+  const blue = $("cBlue").checked;
+  const ev = $("cEval").checked && !$("cEval").disabled;
+  const tester = $("cTester").checked && !$("cTester").disabled;
+  const scopeEl = document.querySelector('input[name=cScope]:checked');
+  const scope = tester ? (blue ? (scopeEl ? scopeEl.value : "all") : "all") : null;
+  return { name: name || "", source: src,
+           // La selezione dei motori vive nel preset, così un preset salvato se
+           // la porta dietro tutta. defenseEngines() applica anche la rete di
+           // sicurezza su skills.sh (ignorato se la cartella non è quella del
+           // dataset): il gating è già fatto a monte nella UI, ma questa è la
+           // fonte di verità di cosa viene davvero inviato.
+           defense: { engines: defenseEngines(), no_llm: noLlmEngines() },
+           eval: ev,
+           tester: { enabled: tester, scope, injection_aware: $("cInjAware").checked } };
+}
+
+async function refreshPresetList(selectVal) {
+  let list = [];
+  try { list = await (await fetch("/api/custom-pipelines")).json(); } catch {}
+  const g = $("customPresetGroup"); g.innerHTML = "";
+  list.forEach(m => {
+    const o = document.createElement("option");
+    o.value = "preset:" + m.name; o.textContent = m.name;
+    g.appendChild(o);
+  });
+  g.style.display = list.length ? "" : "none";
+  if (selectVal) { $("pipeline").value = selectVal; await $("pipeline").onchange(); }
+}
+
+async function loadPresetIntoWizard(name) {
+  let cfg;
+  try { cfg = await (await fetch("/api/custom-pipelines/" + encodeURIComponent(name))).json(); } catch { return; }
+  if (!cfg || !cfg.source) return;
+  const sr = document.querySelector(`input[name=cSource][value="${cfg.source.type}"]`); if (sr) sr.checked = true;
+  if (cfg.source.type === "red" || cfg.source.type === "local_preinjected") {
+    // Mostra ESATTAMENTE i file salvati nel preset, senza ri-scansionare la
+    // cartella: così un preset da "skill-inject base" resta sui suoi SKILL.md e
+    // non viene gonfiato con tutti i .md della cartella. Per aggiungerne altri,
+    // l'utente riusa "Use folder" / "skill-inject base".
+    cFolderPath = cfg.source.local_folder_path || "";
+    $("cFolder").value = cFolderPath;
+    cAllFiles = (cfg.source.selected_files || []).slice();
+    cSelSet.clear(); cAllFiles.forEach(f => cSelSet.add(f));
+    $("cBrowsePanel").classList.add("hidden");
+    if (cAllFiles.length) {
+      $("cFileSel").classList.remove("hidden");
+      $("cFileCount").textContent = String(cAllFiles.length);
+      $("cFileSearch").value = "";
+      cRenderFileList();
+    } else {
+      $("cFileSel").classList.add("hidden");
+    }
+    if (cfg.source.type === "red") {
+      const dd = cfg.source.red_difficulties || ["K1", "K2", "K3"];
+      document.querySelectorAll('.c-red-diff').forEach(cb => cb.checked = dd.includes(cb.value));
+      const vv = cfg.source.red_vuln_types;   // null/undefined = all
+      document.querySelectorAll('.c-red-vuln').forEach(cb => cb.checked = !vv || vv.includes(cb.value));
+      cUpdateRedVulnCount();
+      $("cRedKbChk").checked = !!cfg.source.use_skill_inject_kb;
+    }
+  } else if (cfg.source.type === "skill_inject") {
+    const cats = cfg.source.skill_inject_categories || ["obvious", "contextual"];
+    document.querySelectorAll('.c-si-cat').forEach(cb => cb.checked = cats.includes(cb.value));
+    $("cSiPath").value = cfg.source.skill_inject_path || "skill-inject";
+    await cLoadSiSkills();
+    (cfg.source.skill_inject_skills || []).forEach(s => {
+      const cb = document.querySelector(`.c-si-skill[value="${CSS.escape(s)}"]`); if (cb) cb.checked = true;
+    });
+  } else if (cfg.source.type === "online") {
+    $("cUrls").value = (cfg.source.urls || []).join("\n");
+  }
+  // Preset salvati prima che la difesa diventasse una selezione: "blue" era un
+  // bool (o un oggetto con i with_*, add-on che giravano solo col Blue acceso).
+  // Stessa conversione del backend — vedi _defense_from_dict in
+  // pipelines/custom_config.py.
+  const eng = (cfg.defense && Array.isArray(cfg.defense.engines))
+    ? cfg.defense.engines
+    : (() => {
+        const b = cfg.blue;
+        if (!b || (typeof b === "object" && !b.enabled)) return [];
+        if (typeof b !== "object") return ["blue"];
+        return ["blue"].concat([["with_skillspector", "skillspector"], ["with_cisco", "cisco"],
+                                ["with_snyk", "snyk"], ["with_skills_sh", "skills_sh"]]
+                                .filter(([k]) => b[k]).map(([, id]) => id));
+      })();
+  $("cBlue").checked = eng.includes("blue");
+  $("withSnyk").checked = eng.includes("snyk");
+  $("withSkillspector").checked = eng.includes("skillspector");
+  $("withCisco").checked = eng.includes("cisco");
+  $("withAig").checked = eng.includes("aig");
+  $("withSkillVetter").checked = eng.includes("skill_vetter");
+  $("withSkillsSh").checked = eng.includes("skills_sh");
+  const noLlm = (cfg.defense && Array.isArray(cfg.defense.no_llm)) ? cfg.defense.no_llm : [];
+  $("skillspectorNoLlm").checked = noLlm.includes("skillspector");
+  $("ciscoNoLlm").checked = noLlm.includes("cisco");
+  cSyncGating();
+  $("cEval").checked = !!cfg.eval && !$("cEval").disabled;
+  $("cTester").checked = !!(cfg.tester && cfg.tester.enabled) && !$("cTester").disabled;
+  cSyncGating();
+  if (cfg.tester && cfg.tester.scope) {
+    const sc = document.querySelector(`input[name=cScope][value="${cfg.tester.scope}"]`); if (sc) sc.checked = true;
+  }
+  $("cInjAware").checked = !(cfg.tester && cfg.tester.injection_aware === false);  // default true
+  $("cPresetName").value = cfg.name || name;
+  $("cPresetActions").classList.remove("hidden");
+}
+
+async function cSavePreset() {
+  const name = $("cPresetName").value.trim();
+  const msg = $("cSaveMsg"), err = $("cValErr"); msg.textContent = ""; err.textContent = "";
+  if (!name) { err.textContent = "Enter a name for the preset."; return; }
+  const cfg = buildCustomConfig(name);
+  let res;
+  try {
+    res = await (await fetch("/api/custom-pipelines", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg)
+    })).json();
+  } catch { err.textContent = "request failed"; return; }
+  if (!res.ok) { err.textContent = res.error || "save failed"; return; }
+  msg.textContent = "Preset saved ✓"; msg.className = "text-xs text-emerald-600";
+  // Aggiorna SOLO la lista nel selettore; NON ricaricare il form (ricaricarlo
+  // ri-scansionerebbe la cartella e cambierebbe la selezione di file mostrata).
+  await refreshPresetList();
+  $("cPresetActions").classList.remove("hidden");
+}
+
+async function cDeletePreset() {
+  const name = $("cPresetName").value.trim(); if (!name) return;
+  if (!confirm("Delete preset '" + name + "'?")) return;
+  await fetch("/api/custom-pipelines/" + encodeURIComponent(name), { method: "DELETE" });
+  $("pipeline").value = "custom"; await refreshPresetList(); await $("pipeline").onchange();
+}
+function cDuplicate() {
+  $("cPresetName").value = ($("cPresetName").value || "preset") + "-copy";
+  $("cPresetActions").classList.add("hidden");
+  $("pipeline").value = "custom";   // 'new' mode: Save creerà una copia
+}
+
+// Auto-seed: alla scelta della fonte, popola subito il picker pertinente.
+async function cOnSourceChange() {
+  cSyncGating();
+  const s = cSource();
+  if (s === "skill_inject" && !$("cSiSkills").children.length) await cLoadSiSkills();
+}
+
+// wiring
+document.querySelectorAll('input[name=cSource]').forEach(r => r.onchange = cOnSourceChange);
+$("cBlue").onchange = cSyncGating;
+$("cTester").onchange = cSyncGating;
+$("cRedKbChk").onchange = cSyncGating;
+$("cEval").onchange = applyPhaseVisibility;
+$("cFolderUse").onclick = () => cUseFolder($("cFolder").value.trim());
+$("cSiBase").onclick = cUseSkillInjectBase;
+$("cRedDiffAll").onclick = () => document.querySelectorAll('.c-red-diff').forEach(b => b.checked = true);
+$("cRedDiffNone").onclick = () => document.querySelectorAll('.c-red-diff').forEach(b => b.checked = false);
+$("cRedVulnAll").onclick = () => { document.querySelectorAll('.c-red-vuln').forEach(b => b.checked = true); cUpdateRedVulnCount(); };
+$("cRedVulnNone").onclick = () => { document.querySelectorAll('.c-red-vuln').forEach(b => b.checked = false); cUpdateRedVulnCount(); };
+cBuildRedVuln();   // popola la checklist vuln (Red) al load
+$("cUseThis").onclick = () => cUseFolder(cBrowseCwd);
+$("cCloseBrowse").onclick = () => $("cBrowsePanel").classList.add("hidden");
+$("cFolder").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); cUseFolder($("cFolder").value.trim()); } });
+$("cFolder").addEventListener("input", () => { cUpdateSkillsShAvailability(); syncWithSnykGate(); });
+$("cFileSearch").addEventListener("input", cRenderFileList);
+$("cFileAll").onclick = () => { $("cFileSkillOnly").checked = false; cAllFiles.forEach(f => cSelSet.add(f)); cRenderFileList(); };
+$("cFileNone").onclick = () => { $("cFileSkillOnly").checked = false; cSelSet.clear(); cRenderFileList(); };
+// "solo SKILL.md": seleziona i soli file il cui nome è SKILL.md (case-insensitive).
+const cIsSkillMd = f => (f.split(/[\\/]/).pop() || "").toLowerCase() === "skill.md";
+$("cFileSkillOnly").onchange = () => {
+  if (!$("cFileSkillOnly").checked) return;   // spuntando via non tocco la selezione
+  cSelSet.clear(); cAllFiles.filter(cIsSkillMd).forEach(f => cSelSet.add(f));
+  cRenderFileList();
+};
+$("cSiAll").onclick = () => { document.querySelectorAll('.c-si-skill').forEach(b => b.checked = true); cUpdateSiCount(); };
+$("cSiNone").onclick = () => { document.querySelectorAll('.c-si-skill').forEach(b => b.checked = false); cUpdateSiCount(); };
+$("cSaveBtn").onclick = cSavePreset;
+$("cDelBtn").onclick = cDeletePreset;
+$("cDupBtn").onclick = cDuplicate;
+refreshPresetList();   // populate the Custom optgroup at load
+$("pipeline").onchange();   // seed the wizard from the default selection ("full")
+
+// ── system prompt overrides (advanced) ──────────────────────────────
+// Mostra SOLO gli agenti che girano nella pipeline/config scelta. UX accordion:
+// la lista resta sempre visibile; cliccando un agente si apre INLINE la sua textarea
+// (alta quanto il testo, auto-grow, niente scroll interna). Aprendone un altro si
+// chiude il precedente (single-open). Default via GET /prompts; solo i prompt
+// modificati finiscono in params.system_prompts.
+let promptMeta = {};        // name → label
+let promptDefaults = {};    // name → testo default
+let promptState = {};       // name → testo corrente (default o editato) — persiste tra i re-render
+let promptOpen = null;      // agente con dropdown aperto (single-open), null = tutti chiusi
+let promptsReady = false;
+let lastAgentSig = "";
+const PROMPT_CANON = ["red","blue_scan","blue_patch","eval","judge","tester_judge","environment"];
+
+// Quali agenti girano nella selezione corrente (mirror di _used_agents lato backend) —
+// derivati dai toggle dello wizard, uniforme per template predefiniti/preset/custom.
+function agentsForSelection() {
+  const set = new Set();
+  if (cSource() === "red") set.add("red");
+  if ($("cBlue").checked) { set.add("blue_scan"); set.add("blue_patch"); }
+  if ($("cEval").checked && !$("cEval").disabled) set.add("eval");
+  if ($("cTester").checked) { set.add("judge"); set.add("tester_judge"); set.add("environment"); }
+  return PROMPT_CANON.filter(n => set.has(n));
+}
+
+function autoGrow(t) { t.style.height = "auto"; t.style.height = (t.scrollHeight + 2) + "px"; }
+
+function renderPromptsPanel(force) {
+  if (!promptsReady) return;
+  const agents = agentsForSelection().filter(n => n in promptDefaults);
+  if (promptOpen && !agents.includes(promptOpen)) promptOpen = null;
+  const sig = agents.join(",") + "|" + promptOpen;
+  if (!force && sig === lastAgentSig) return;   // niente da ridisegnare
+  lastAgentSig = sig;
+  const box = $("promptsBox");
+  if (!agents.length) {
+    box.className = "px-3 py-3 text-xs text-slate-400";
+    box.innerHTML = "No agent for this selection.";
+    return;
+  }
+
+  // ── accordion: header sempre visibili, dropdown inline per l'agente aperto ──
+  box.className = "px-3 py-3 space-y-1.5";
+  box.innerHTML = agents.map(n => {
+    const edited = promptState[n] !== promptDefaults[n];
+    const open   = promptOpen === n;
+    return `<div class="border rounded-md overflow-hidden ${open ? 'border-blue-300' : ''}">
+      <button type="button" data-agent="${n}"
+        class="w-full text-left flex items-center justify-between gap-3 px-3 py-2 text-sm bg-white hover:bg-slate-50">
+        <span class="font-medium text-slate-700">${promptMeta[n] || n}
+          <span class="text-slate-400 font-normal">(${n})</span></span>
+        <span class="flex items-center gap-2 whitespace-nowrap">
+          <span class="text-xs ${edited ? 'text-amber-600' : 'text-slate-400'}">${edited ? '✎ modified' : 'default'}</span>
+          <span class="text-slate-400">${open ? '▾' : '▸'}</span>
+        </span>
+      </button>
+      ${open ? `<div class="border-t border-slate-200 p-2 bg-slate-50 space-y-1.5">
+        <div class="text-right">
+          <button type="button" data-reset="${n}" class="text-xs text-blue-600 hover:underline">reset to default</button>
+        </div>
+        <textarea id="spText" data-prompt="${n}"
+          class="w-full border rounded-md px-2 py-1.5 font-mono text-[11px] leading-snug bg-white overflow-hidden resize-none"></textarea>
+      </div>` : ''}
+    </div>`;
+  }).join("");
+
+  // header → apre/chiude (single-open: aprirne uno chiude il precedente)
+  box.querySelectorAll('button[data-agent]').forEach(b =>
+    b.onclick = e => { e.preventDefault(); const n = b.dataset.agent;
+      promptOpen = (promptOpen === n) ? null : n; renderPromptsPanel(true); });
+
+  // textarea dell'agente aperto: auto-grow + persistenza edit + reset
+  const t = $("spText");
+  if (t && promptOpen) {
+    const n = promptOpen;
+    t.value = promptState[n] ?? promptDefaults[n] ?? "";
+    autoGrow(t);
+    t.addEventListener("input", () => { promptState[n] = t.value; autoGrow(t); });
+    const rb = box.querySelector(`button[data-reset="${n}"]`);
+    if (rb) rb.onclick = e => { e.preventDefault(); promptState[n] = promptDefaults[n]; t.value = promptDefaults[n]; autoGrow(t); renderPromptsPanel(true); };
+  }
+}
+
+function buildPromptsPanel() {
+  fetch("/prompts").then(r => r.json()).then(res => {
+    if (!res.ok || !(res.prompts || []).length) {
+      $("promptsBox").innerHTML = '<span class="text-slate-400">System prompts not available.</span>';
+      return;
+    }
+    res.prompts.forEach(p => {
+      promptMeta[p.name]     = p.label || p.name;
+      promptDefaults[p.name] = p.text || "";
+      if (!(p.name in promptState)) promptState[p.name] = p.text || "";
+    });
+    promptsReady = true; promptOpen = null; renderPromptsPanel(true);
+  }).catch(() => {
+    $("promptsBox").innerHTML = '<span class="text-slate-400">Error loading prompts.</span>';
+  });
+}
+
+// Invia solo gli agenti della selezione corrente, e solo se modificati dal default.
+function collectPromptOverrides() {
+  const out = {};
+  agentsForSelection().forEach(n => {
+    const v = promptState[n];
+    if (v != null && v !== promptDefaults[n] && v.trim()) out[n] = v;
+  });
+  return out;
+}
+
+// ── model per agent (advanced) ────────────────────────────────────────
+// Stessa idea del pannello system-prompt sopra, ma per il modello: un override
+// per ruolo, vuoto = eredita il modello principale (SECURITY_MODEL). "target" e
+// "validator" qui sostituiscono "environment"/"eval" di PROMPT_CANON — il target
+// (agente dentro Docker) ha un modello scegliibile ma nessun system-prompt
+// override, e "validator" è il nome ruolo più chiaro di "eval" per il picker.
+const AGENT_MODEL_ROLES = [
+  ["red",          "Red (injection generator)"],
+  ["blue_scan",    "Blue · scanner"],
+  ["blue_patch",   "Blue · patcher"],
+  ["target",       "Target agent (in Docker)"],
+  ["env",          "Environment agent (workspace setup)"],
+  ["judge",        "Judge (bypass verdict)"],
+  ["tester_judge", "Tester judge (prompts + task completion)"],
+  ["validator",    "Verifier (ambiguous cases, Tier-2)"],
+];
+let agentModelState = {};        // role → valore digitato (persiste tra i re-render)
+let agentModelsLastSig = "";
+
+function agentModelRolesVisible() {
+  const set = new Set();
+  if (cSource() === "red") set.add("red");
+  if ($("cBlue").checked) { set.add("blue_scan"); set.add("blue_patch"); }
+  if ($("cEval").checked && !$("cEval").disabled) set.add("validator");
+  if ($("cTester").checked && !$("cTester").disabled) {
+    set.add("target"); set.add("env"); set.add("judge"); set.add("tester_judge");
+  }
+  return AGENT_MODEL_ROLES.filter(([key]) => set.has(key));
+}
+
+function renderAgentModelsPanel(force) {
+  const roles = agentModelRolesVisible();
+  const sig = roles.map(([key]) => key).join(",");
+  if (!force && sig === agentModelsLastSig) return;
+  agentModelsLastSig = sig;
+  const box = $("agentModelsBox");
+  if (!roles.length) {
+    box.innerHTML = '<span class="text-slate-400">No agent for this selection.</span>';
+    return;
+  }
+  box.innerHTML = roles.map(([key, label]) => `
+    <div>
+      <div class="flex items-center gap-2">
+        <label class="w-64 shrink-0 text-slate-700" for="am_${key}">${esc(label)}</label>
+        <div id="am_${key}_wrap" class="relative flex-1 min-w-0">
+          <input id="am_${key}" type="text" autocomplete="off"
+                 placeholder="same as main model" value="${esc(agentModelState[key] || '')}"
+                 class="w-full border rounded-md px-2 py-1 text-xs">
+          <div id="am_${key}_suggest"
+               class="hidden absolute z-30 left-0 right-0 mt-1 bg-white border rounded-md shadow-lg max-h-56 overflow-y-auto text-sm"></div>
+        </div>
+      </div>
+      <div id="am_${key}_info" class="hidden text-xs text-slate-500 mt-0.5 ml-[calc(16rem+0.5rem)] log-line"></div>
+    </div>`).join("");
+  roles.forEach(([key]) => {
+    const inp = $("am_" + key);
+    inp.addEventListener("input", () => {
+      agentModelState[key] = inp.value; updateAgentModelInfo(key); showAgentModelSuggest(key);
+    });
+    inp.addEventListener("focus", () => showAgentModelSuggest(key));
+    updateAgentModelInfo(key);   // ripristina la riga costo se il ruolo aveva già un modello scelto
+  });
+}
+
+// Suggerimenti di ricerca per un picker di ruolo — STESSA lista/prezzo mostrati
+// nel dropdown del model picker principale (showModelSuggest), così il prezzo è
+// visibile già durante la ricerca e non solo dopo la selezione.
+function showAgentModelSuggest(key) {
+  const inp = $("am_" + key), box = $("am_" + key + "_suggest");
+  if (!inp || !box) return;
+  const q = inp.value.trim().toLowerCase();
+  const matches = allModels.filter(m => (m.name + " " + m.id).toLowerCase().includes(q)).slice(0, 50);
+  box.innerHTML = "";
+  if (!matches.length) { box.classList.add("hidden"); return; }
+  matches.forEach(m => {
+    const p = m.pricing || {};
+    const it = document.createElement("div");
+    it.className = "px-2.5 py-1.5 hover:bg-blue-50 cursor-pointer log-line";
+    it.innerHTML = `<span class="font-medium">${esc(m.name)}</span>`
+                 + ` <span class="text-slate-400">· in ${fmtPrice(p.prompt)} · out ${fmtPrice(p.completion)} /1M</span>`;
+    // mousedown (not click) so it fires before the input blurs — stesso trucco del main picker
+    it.onmousedown = e => {
+      e.preventDefault();
+      inp.value = m.id;
+      agentModelState[key] = m.id;
+      updateAgentModelInfo(key);
+      box.classList.add("hidden");
+    };
+    box.appendChild(it);
+  });
+  box.classList.remove("hidden");
+}
+function hideAgentModelSuggest(key) {
+  const b = $("am_" + key + "_suggest");
+  if (b) b.classList.add("hidden");
+}
+// Click fuori da un picker di ruolo → chiude il suo dropdown (stesso pattern del
+// model picker principale, esteso ai 7 possibili ruoli).
+document.addEventListener("click", e => {
+  AGENT_MODEL_ROLES.forEach(([key]) => {
+    const wrap = document.getElementById(`am_${key}_wrap`);
+    if (wrap && !wrap.contains(e.target)) hideAgentModelSuggest(key);
+  });
+});
+
+// Riga costo sotto l'input di un ruolo — STESSO formato/fonte del model picker
+// principale (modelInfoText + cache di /api/model-pricing), solo se il valore
+// digitato combacia con un id noto del catalogo OpenRouter; altrimenti nascosta
+// (valore libero non riconosciuto, o campo vuoto = eredita il main).
+function updateAgentModelInfo(key) {
+  const inp = $("am_" + key), info = $("am_" + key + "_info");
+  if (!inp || !info) return;
+  const val = inp.value.trim();
+  const m = allModels.find(x => x.id === val);
+  if (!m) { info.classList.add("hidden"); info.textContent = ""; return; }
+  info.textContent = modelInfoText(m, cachePriceCache[m.id]);
+  info.classList.remove("hidden");
+  if (cachePriceCache[m.id] === undefined) {
+    cachePriceCache[m.id] = null;   // mark in-flight (stesso pattern di selectModel)
+    fetch(`/api/model-pricing?model=${encodeURIComponent(m.id)}`)
+      .then(r => r.json())
+      .then(d => {
+        cachePriceCache[m.id] = (d && d.cheapest) || null;
+        endpointsCache[m.id] = (d && d.endpoints) || [];
+        if (inp.value.trim() === m.id) info.textContent = modelInfoText(m, cachePriceCache[m.id]);
+      })
+      .catch(() => {});
+  }
+}
+
+// Invia solo gli agenti della selezione corrente, e solo i campi valorizzati.
+function collectAgentModelOverrides() {
+  const out = {};
+  agentModelRolesVisible().forEach(([key]) => {
+    const v = (agentModelState[key] || "").trim();
+    if (v) out[key] = v;
+  });
+  return out;
+}
+
+// ── model-per-agent modal (aperto dal bottone accanto al model picker) ─
+function agentModelsMainText() {
+  return selectedModel ? modelInfoText(selectedModel, cachePriceCache[selectedModel.id])
+                       : "(default from .env — none selected)";
+}
+function openAgentModelsModal() {
+  $("agentModelsMainInfo").textContent = agentModelsMainText();
+  renderAgentModelsPanel(true);
+  $("agentModelsModal").classList.remove("hidden");
+}
+function closeAgentModelsModal() { $("agentModelsModal").classList.add("hidden"); }
+$("agentModelsBtn").onclick = openAgentModelsModal;
+$("agentModelsClose").onclick = closeAgentModelsModal;
+$("agentModelsDone").onclick = closeAgentModelsModal;
+// Click sul backdrop (non sul pannello interno) → chiude, come un modale standard.
+$("agentModelsModal").addEventListener("click", e => {
+  if (e.target.id === "agentModelsModal") closeAgentModelsModal();
+});
+
+$("promptsReset").onclick = e => {
+  e.preventDefault(); e.stopPropagation();
+  Object.keys(promptDefaults).forEach(n => promptState[n] = promptDefaults[n]);
+  renderPromptsPanel(true);
+};
+// Auto-grow quando si apre il pannello (la textarea calcola l'altezza solo da visibile).
+$("promptsPanel").addEventListener("toggle", () => {
+  const t = $("spText"); if (t && $("promptsPanel").open) autoGrow(t);
+});
+buildPromptsPanel();
+
+// ── submit ──
+// Ogni run (predefinita/preset/custom) parte come pipeline=custom — i motori di
+// difesa vivono SOLO dentro custom_config.defense.engines (letti da
+// pipelines/custom.py), così viaggiano col preset salvato/ricaricato invece di
+// essere parametri top-level a parte.
+function collectParams() {
+  return {
+    pipeline: "custom",
+    custom_config: buildCustomConfig($("cPresetName").value.trim() || "unsaved"),
+    max_attempts: $("cMaxAttempts").value || 5,
+    parallel: $("parallel").value,
+    max_files: $("max_files").value,
+    output: $("output").value,
+    notes: $("notes").value,
+    model: selectedModel ? selectedModel.id : "",
+    agent_models: collectAgentModelOverrides(),
+    provider_ignore: providerIgnoreCsv(),
+    input_price:  selectedModel && selectedModel.pricing ? selectedModel.pricing.prompt : "",
+    output_price: selectedModel && selectedModel.pricing ? selectedModel.pricing.completion : "",
+  };
+}
+function resetUI(p) {
+  // Run's --output is a path like "results/webui_run_xxx"; /report/<run_id>
+  // wants just the trailing folder name (matches _RESULTS_DIR/<run_id>/report.html
+  // server-side, same as the History tab's links).
+  currentRunId = (p.output || "results/webui_run").trim().split("/").filter(Boolean).pop() || null;
+  Object.keys(phaseEls).forEach(k => delete phaseEls[k]);
+  $("phases").innerHTML = "";
+  $("alerts").innerHTML = ""; $("alertsCard").classList.add("hidden");
+  $("rawLog").textContent = ""; rawLines = 0; $("rawCount").textContent = "0 lines";
+  $("finishBox").classList.add("hidden"); $("reportBtn").classList.add("hidden");
+  $("barWrap").classList.add("hidden"); $("bar").style.width = "0%";
+  $("tokensCard").classList.add("hidden"); $("tokAgents").innerHTML = "";
+  $("finStats").textContent = ""; $("finPath").textContent = "";
+  currentPhase = null; finished = false; lastBannerMs = 0;
+  // pre-create the rows (waiting state); buildPhaseRows hides skipped phases
+  buildPhaseRows();
+
+  // header box
+  $("headerBox").classList.remove("hidden");
+  const now = new Date();
+  const pv = $("pipeline").value;
+  const label = pv.startsWith("preset:") ? pv.slice("preset:".length) : pv;
+  $("hbTitle").textContent = `SkillSecurer · ${label} · ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+  const c = p.custom_config || {}, t = c.tester || {};
+  const eng = ((c.defense || {}).engines) || [];
+  const blueOn = eng.includes("blue");
+  $("hbParams").textContent =
+    `source=${(c.source||{}).type} · defense=${eng.join("+") || "none"} · eval=${!!c.eval} · `
+    + `tester=${t.enabled?(blueOn?"3way":"2way")+(t.scope?`/${t.scope}`:""):"off"} · `
+    + `parallel=${p.parallel} · out=${p.output}`;
+}
+
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (running) return;
+  // If the output folder is still the auto value, freshen its timestamp so a new
+  // run never overwrites the previous one; leave a user-customized path alone.
+  if ($("output").value === autoOutput) {
+    autoOutput = defaultOutput();
+    $("output").value = autoOutput;
+  }
+  const p = collectParams();
+  p.system_prompts = collectPromptOverrides();   // solo i prompt modificati
+  const c = p.custom_config, s = c.source || {};
+  if ((s.type === "red" || s.type === "local_preinjected") && !(s.selected_files || []).length) {
+    alert("Select at least one file (Use folder → check the .md files)."); return;
+  }
+  if (s.type === "online" && !(s.urls || []).length) { alert("Enter at least one URL."); return; }
+
+  $("runBtn").disabled = true;
+  resetUI(p);
+
+  let res;
+  try { res = await (await fetch("/run", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(p)})).json(); }
+  catch (err) { addAlert("Failed to start: " + err, "error"); $("runBtn").disabled = false; return; }
+
+  if (!res.ok) { addAlert(res.error || "Run failed to start", "error"); $("runBtn").disabled = false; return; }
+  $("argv").textContent = (res.argv || []).join(" ");
+  running = true;
+  $("liveDot").classList.remove("hidden");
+  $("stopBtn").disabled = false;
+  openStream();
+});
+
+$("stopBtn").onclick = () => fetch("/stop", {method:"POST"});
+
+// ── tabs (Run / History) ─────────────────────────────────────────────────
+function setTab(which) {
+  const on  = "px-4 py-1.5 rounded-md text-sm font-medium bg-blue-600 text-white";
+  const off = "px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100";
+  $("runView").classList.toggle("hidden", which !== "run");
+  $("historyView").classList.toggle("hidden", which !== "history");
+  $("compareView").classList.toggle("hidden", which !== "compare");
+  $("tabRun").className        = which === "run"        ? on : off;
+  $("tabHistory").className    = which === "history"    ? on : off;
+  $("tabCompare").className    = which === "compare"    ? on : off;
+  if (which === "history") loadHistory();
+  if (which === "compare") loadCompareGroups();
+}
+$("tabRun").onclick        = () => setTab("run");
+$("tabHistory").onclick    = () => setTab("history");
+$("tabCompare").onclick    = () => setTab("compare");
+$("refreshHistory").onclick = loadHistory;
+
+// ── post-processing: compare runs on the same dataset ──────────────
+let cmpGroups = [];
+
+async function loadCompareGroups() {
+  const sel = $("cmpGroup");
+  sel.innerHTML = `<option>loading…</option>`;
+  let data;
+  try {
+    data = await (await fetch("/api/postprocess/groups")).json();
+  } catch (e) {
+    sel.innerHTML = `<option>error: ${esc(e.message)}</option>`;
+    return;
+  }
+  cmpGroups = data.groups || [];
+  if (!cmpGroups.length) {
+    sel.innerHTML = `<option value="">no comparable runs</option>`;
+    $("cmpRuns").innerHTML = `<div class="p-4 text-sm text-slate-400">No run with a per-engine block in results.json.</div>`;
+    return;
+  }
+  sel.innerHTML = cmpGroups.map((g, i) =>
+    `<option value="${i}">${esc(g.label)} — ${g.n_cases} cases · ${g.n_runs} runs</option>`).join("");
+  sel.value = "0";
+  renderCompareGroup();
+}
+
+function currentCmpGroup() { return cmpGroups[parseInt($("cmpGroup").value, 10)] || null; }
+
+function renderCompareGroup() {
+  const g = currentCmpGroup();
+  if (!g) return;
+  $("cmpGroupInfo").textContent =
+    `${g.n_cases} cases · engines: ${g.engines.join(", ")} · fingerprint ${g.fingerprint}`;
+  $("cmpRuns").innerHTML = g.runs.map((r, i) => `
+    <label class="flex items-start gap-3 p-2.5 hover:bg-slate-50 cursor-pointer">
+      <input type="checkbox" class="cmp-run mt-0.5" value="${esc(r.run_id)}" checked>
+      <span class="min-w-0 flex-1">
+        <span class="block font-medium text-slate-700 truncate">${esc(r.run_id)}</span>
+        <span class="block text-xs text-slate-500">
+          ${esc(r.engines.join(", "))} · ${r.n_cases} cases · ${fmtDate(r.timestamp)}
+          ${r.model ? " · " + esc(r.model) : ""}
+        </span>
+      </span>
+    </label>`).join("");
+  $("cmpRuns").querySelectorAll(".cmp-run").forEach(cb => cb.onchange = syncCompareRef);
+  $("cmpOutput").value = "cmp_" + (g.label || "runs").replace(/[^A-Za-z0-9_.-]/g, "_");
+  syncCompareRef();
+}
+
+function selectedCmpRuns() {
+  return Array.from($("cmpRuns").querySelectorAll(".cmp-run:checked")).map(cb => cb.value);
+}
+
+// Columns are (run, engine): the reference selector lists them all,
+// "auto" lets the generator choose (first blue column, otherwise the first one).
+function syncCompareRef() {
+  const g = currentCmpGroup();
+  const chosen = new Set(selectedCmpRuns());
+  const opts = ['<option value="">auto (blue if present)</option>'];
+  (g ? g.runs : []).filter(r => chosen.has(r.run_id)).forEach(r =>
+    r.engines.forEach(e => opts.push(
+      `<option value="${esc(r.run_id)}:${esc(e)}">${esc(e)} — ${esc(r.run_id)}</option>`)));
+  const prev = $("cmpRef").value;
+  $("cmpRef").innerHTML = opts.join("");
+  if (prev && Array.from($("cmpRef").options).some(o => o.value === prev)) $("cmpRef").value = prev;
+  $("cmpRun").disabled = chosen.size === 0;
+}
+
+$("cmpGroup").onchange = renderCompareGroup;
+$("refreshGroups").onclick = loadCompareGroups;
+$("cmpAll").onclick  = () => { $("cmpRuns").querySelectorAll(".cmp-run").forEach(c => c.checked = true);  syncCompareRef(); };
+$("cmpNone").onclick = () => { $("cmpRuns").querySelectorAll(".cmp-run").forEach(c => c.checked = false); syncCompareRef(); };
+
+$("cmpRun").onclick = async () => {
+  const runs = selectedCmpRuns();
+  if (!runs.length) return;
+  const box = $("cmpResult");
+  box.classList.remove("hidden");
+  box.innerHTML = `<div class="text-sm text-slate-500">Generating…</div>`;
+  $("cmpRun").disabled = true;
+  let res;
+  try {
+    res = await (await fetch("/api/postprocess/compare", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        runs,
+        output: $("cmpOutput").value.trim(),
+        title:  $("cmpTitle").value.trim(),
+        ref:    $("cmpRef").value,
+      }),
+    })).json();
+  } catch (e) {
+    res = {ok: false, error: e.message};
+  }
+  $("cmpRun").disabled = false;
+  if (!res.ok) {
+    box.innerHTML = `<div class="text-sm text-rose-600">Error: ${esc(res.error || "unknown")}</div>`;
+    return;
+  }
+  const a = res.agreement || {};
+  const rows = (res.overview || []).map(o => `
+    <tr class="border-b last:border-0">
+      <td class="py-1 pr-3">${esc(o.label)}</td>
+      <td class="py-1 px-2 text-center">${o.flagged}/${o.total}</td>
+      <td class="py-1 px-2 text-center font-medium">${o.rate}%</td>
+    </tr>`).join("");
+  box.innerHTML = `
+    <div class="flex items-center justify-between mb-2">
+      <div class="font-medium text-slate-700">${esc(res.title)}</div>
+      <a href="${res.url}" target="_blank"
+         class="text-sm bg-blue-600 text-white rounded-md px-3 py-1.5 hover:bg-blue-700">Open report ↗</a>
+    </div>
+    <div class="text-xs text-slate-500 mb-3">
+      N=${res.n} cases compared · excluded: ${res.meta.cases_partial} not in all runs,
+      ${res.meta.excluded_unavailable} engine unavailable, ${res.meta.excluded_scan_error} scan error
+      · file: <code>results/${esc(res.output)}/comparison_report.html</code>
+    </div>
+    <table class="w-full text-sm mb-3"><tbody>${rows}</tbody></table>
+    <div class="text-xs text-slate-600">
+      Agreement — both ${a.both} · reference only ${a.ref_only} · others only ${a.others_only} · neither ${a.neither}
+    </div>`;
+};
+
+// ── history rendering ────────────────────────────────────────────────
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function pct0(v) { return (v == null) ? "—" : v.toFixed(0) + "%"; }
+function fmtDate(ts) { if (!ts) return "—"; const d = new Date(ts); return isNaN(d) ? ts : d.toLocaleString(); }
+
+function detBadge(rate) {
+  if (rate == null) return `<span class="text-slate-400">—</span>`;
+  const cls = rate >= 100 ? "bg-emerald-100 text-emerald-700"
+            : rate >= 75  ? "bg-amber-100 text-amber-700"
+            :               "bg-rose-100 text-rose-700";
+  return `<span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium ${cls}">${rate.toFixed(0)}%</span>`;
+}
+function asrCell(pre, post) {
+  const preCls  = (pre  != null && pre > 0) ? "text-rose-600 font-medium"    : "text-slate-500";
+  const postCls = (post === 0)              ? "text-emerald-600 font-medium" : "text-slate-500";
+  return `<span class="${preCls}">${pct0(pre)}</span><span class="text-slate-300 px-0.5">→</span><span class="${postCls}">${pct0(post)}</span>`;
+}
+function breakdownTable(title, obj) {
+  const keys = Object.keys(obj || {});
+  const head = `<div class="font-medium text-slate-600 mb-1 text-xs uppercase tracking-wide">${title}</div>`;
+  const box = document.createElement("div");
+  if (!keys.length) { box.innerHTML = head + '<div class="text-xs text-slate-400">(none)</div>'; return box; }
+  const rows = keys.map(k => {
+    const v = obj[k] || {};
+    return `<tr class="border-b last:border-0">
+      <td class="py-1 pr-2 log-line">${esc(k)}</td>
+      <td class="py-1 px-2 text-center">${v.detected ?? "—"}</td>
+      <td class="py-1 px-2 text-center text-rose-600">${pct0(v.asr_pre_rate)}</td>
+      <td class="py-1 px-2 text-center text-emerald-600">${pct0(v.asr_post_rate)}</td>
+    </tr>`;
+  }).join("");
+  box.innerHTML = head + `<table class="w-full text-xs">
+    <thead><tr class="text-slate-400 text-left">
+      <th class="py-1 pr-2">type</th><th class="py-1 px-2 text-center">detected</th>
+      <th class="py-1 px-2 text-center">asr_pre</th><th class="py-1 px-2 text-center">asr_post</th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+  return box;
+}
+function buildDetail(r) {
+  const wrap = document.createElement("div");
+  wrap.className = "grid grid-cols-1 md:grid-cols-2 gap-4";
+  wrap.append(breakdownTable("By vuln type", r.by_vuln_type),
+              breakdownTable("By difficulty", r.by_difficulty));
+  return wrap;
+}
+function buildCompareDetail(r) {
+  const wrap = document.createElement("div");
+  wrap.className = "text-xs text-slate-600 space-y-1";
+  wrap.innerHTML = `
+    <div><span class="font-medium">Runs compared:</span> ${esc((r.runs||[]).join(", ") || "—")}</div>
+    <div><span class="font-medium">Engines:</span> ${esc((r.engines||[]).join(", ") || "—")}</div>`;
+  return wrap;
+}
+function renderHistory(list) {
+  const body = $("historyBody"); body.innerHTML = "";
+  const empty = list.length === 0;
+  $("historyEmpty").classList.toggle("hidden", !empty);
+  $("historyWrap").classList.toggle("hidden", empty);
+  list.forEach(r => {
+    const isCmp = r.kind === "comparison";
+    const tr = document.createElement("tr");
+    tr.className = "border-b hover:bg-slate-50 cursor-pointer align-top";
+    const typeBadge = isCmp
+      ? `<span class="inline-block bg-violet-100 text-violet-700 rounded px-1.5 py-0.5 text-xs">Post-processing</span>`
+      : `<span class="inline-block bg-slate-100 text-slate-600 rounded px-1.5 py-0.5 text-xs">Run</span>`;
+    let row;
+    if (isCmp) {
+      const skills = (r.runs && r.runs.length) ? `${r.runs.length} runs` : "—";
+      const engs   = (r.engines && r.engines.length) ? r.engines.join(", ") : "—";
+      row = `
+        <td class="py-2 pr-2 font-medium log-line">${esc(r.title || r.run_id)}</td>
+        <td class="py-2 px-2">${typeBadge}</td>
+        <td class="py-2 px-2 whitespace-nowrap text-slate-600">${esc(fmtDate(r.timestamp))}</td>
+        <td class="py-2 px-2" title="${esc((r.runs||[]).join(', '))}">${esc(skills)}</td>
+        <td class="py-2 px-2" title="${esc(engs)}">${esc(engs)}</td>
+        <td class="py-2 px-2 text-center">${r.total ?? "—"}</td>
+        <td class="py-2 px-2 text-center">—</td>
+        <td class="py-2 px-2 text-center">—</td>
+        <td class="py-2 px-2 text-center">—</td>
+        <td class="py-2 px-2 text-center"></td>`;
+    } else {
+      const skills = (r.skills && r.skills.length) ? r.skills.join(", ") : "—";
+      const vts    = (r.vuln_types && r.vuln_types.length) ? `${r.vuln_types.length} types` : "—";
+      row = `
+        <td class="py-2 pr-2 font-medium log-line">${esc(r.run_id)}</td>
+        <td class="py-2 px-2">${typeBadge}</td>
+        <td class="py-2 px-2 whitespace-nowrap text-slate-600">${esc(fmtDate(r.timestamp))}</td>
+        <td class="py-2 px-2">${esc(skills)}</td>
+        <td class="py-2 px-2" title="${esc((r.vuln_types||[]).join(', '))}">${esc(vts)}</td>
+        <td class="py-2 px-2 text-center">${r.total ?? "—"}</td>
+        <td class="py-2 px-2 text-center">${detBadge(r.detection_rate)}</td>
+        <td class="py-2 px-2 text-center whitespace-nowrap">${asrCell(r.asr_pre_rate, r.asr_post_rate)}</td>
+        <td class="py-2 px-2 text-center">${pct0(r.func_preserved_rate)}</td>
+        <td class="py-2 px-2 text-center"></td>`;
+    }
+    tr.innerHTML = row;
+    const reportHref = isCmp ? (r.report_url || `/postprocess/report/${encodeURIComponent(r.run_id)}`)
+                              : "/report/" + encodeURIComponent(r.run_id);
+    const a = document.createElement("a");
+    a.href = reportHref;
+    a.target = "_blank";
+    a.className = "inline-block bg-slate-100 hover:bg-slate-200 rounded px-2 py-1 text-xs";
+    a.textContent = "Open";
+    a.onclick = e => e.stopPropagation();   // don't toggle the detail row
+    const dl = document.createElement("a");
+    dl.href = reportHref;
+    dl.download = `${r.run_id}_report.html`;
+    dl.className = "inline-block bg-slate-100 hover:bg-slate-200 rounded px-2 py-1 text-xs ml-1";
+    dl.textContent = "⬇";
+    dl.title = "Download report.html";
+    dl.onclick = e => e.stopPropagation();
+    tr.lastElementChild.append(a, dl);
+
+    const det = document.createElement("tr");
+    det.className = "hidden bg-slate-50";
+    const td = document.createElement("td"); td.colSpan = 10; td.className = "p-3";
+    td.appendChild(isCmp ? buildCompareDetail(r) : buildDetail(r)); det.appendChild(td);
+    tr.onclick = () => det.classList.toggle("hidden");
+
+    body.append(tr, det);
+  });
+}
+let _historyAll = [];
+function applyHistoryFilter() {
+  const showRun = $("cHistShowRun").checked;
+  const showCmp = $("cHistShowCmp").checked;
+  renderHistory(_historyAll.filter(r =>
+    (r.kind === "comparison") ? showCmp : showRun));
+}
+async function loadHistory() {
+  let list;
+  try { list = await (await fetch("/api/history")).json(); }
+  catch { list = []; }
+  _historyAll = Array.isArray(list) ? list : [];
+  applyHistoryFilter();
+}
+$("cHistShowRun").addEventListener("change", applyHistoryFilter);
+$("cHistShowCmp").addEventListener("change", applyHistoryFilter);
+
+// default tab = Run; preload history in the background
+setTab("run");
+loadHistory();
+
+// show phase rows for the default pipeline (full → all visible) in form state
+buildPhaseRows();
+
+// initial gating pass: hides/disables rows (e.g. "Compare with skills.sh")
+// that don't apply to the default source/folder until the user picks one.
+cSyncGating();
+
+// default dropdown value is "full" but the wizard hasn't run its template yet
+// on first paint — apply the same step visibility so it doesn't start looking
+// like "custom" (all 4 source options visible) until the user touches it.
+applyStepVisibility(LEGACY_TEMPLATES.full);
+
+// seed a timestamped default output folder
+autoOutput = defaultOutput();
+$("output").value = autoOutput;
+
+// reconnect to an in-flight run on page load
+openStream();
+</script>
+</body>
+</html>

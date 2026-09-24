@@ -1,0 +1,54 @@
+{
+  "name": "skillTrustBench_130",
+  "source": {
+    "type": "red",
+    "local_folder_path": "/home/macd/ecosistema_finale/skillTrustBenchVerified_20",
+    "selected_files": [
+      "case_00054/SKILL.md",
+      "case_00224/SKILL.md",
+      "case_00360/SKILL.md",
+      "case_00399/SKILL.md",
+      "case_01013/SKILL.md",
+      "case_01445/SKILL.md",
+      "case_01834/SKILL.md",
+      "case_01956/SKILL.md",
+      "case_01984/SKILL.md",
+      "case_02107/SKILL.md",
+      "case_02190/SKILL.md",
+      "case_02554/SKILL.md",
+      "case_02646/SKILL.md",
+      "case_02663/SKILL.md",
+      "case_03966/SKILL.md",
+      "case_04075/SKILL.md",
+      "case_04591/SKILL.md",
+      "case_04712/SKILL.md",
+      "case_05057/SKILL.md",
+      "case_05428/SKILL.md"
+    ],
+    "red_difficulties": [
+      "K3"
+    ],
+    "use_skill_inject_kb": false,
+    "red_vuln_types": [
+      "arbitrary_script_execution",
+      "data_exfiltration",
+      "supply_chain",
+      "credential_exposure",
+      "prompt_hijacking",
+      "resource_exhaustion",
+      "privilege_escalation",
+      "indirect_injection",
+      "guardfall"
+    ]
+  },
+  "defense": {
+    "engines": [],
+    "no_llm": []
+  },
+  "eval": false,
+  "tester": {
+    "enabled": false,
+    "scope": null,
+    "injection_aware": true
+  }
+}

@@ -1,0 +1,4 @@
+base_url: https://api.fenxianglife.com/fenxiang-ai-brain
+headers:
+  Content-Type: application/json
+timeout: 30

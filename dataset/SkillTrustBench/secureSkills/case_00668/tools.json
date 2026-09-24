@@ -1,0 +1,80 @@
+{
+  "name": "knab",
+  "version": "1.1.0",
+  "description": "Read-only on-chain research tool for AIMS vaults. Reads blockchain data (prices, transactions, pool reserves). No wallet needed. All operations are read-only.",
+  "author": "AIMS Protocol",
+  "homepage": "https://knab.ai",
+
+  "tools": [
+    {
+      "name": "knab_brief",
+      "description": "Read-only decision summary with top picks, caution picks, avoid picks. No wallet needed.",
+      "input_schema": { "type": "object", "properties": { "days": { "type": "number", "description": "Horizon in days. Default: 365." } }, "required": [] }
+    },
+    {
+      "name": "knab_vaults",
+      "description": "List all vaults with prices, APY, reserves, activity. No wallet needed.",
+      "input_schema": { "type": "object", "properties": {}, "required": [] }
+    },
+    {
+      "name": "knab_estimate",
+      "description": "Estimate future value after fees. No wallet needed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vault": { "type": "string", "enum": ["WISH","TIME","LOVE","XYZT","FACE","CHINESE","SPACE","LOVE_BASE","TAICHI"] },
+          "amount": { "type": "string", "description": "Amount, e.g. '100'" },
+          "days": { "type": "number", "description": "Days, e.g. 365" }
+        },
+        "required": ["vault", "amount", "days"]
+      }
+    },
+    {
+      "name": "knab_assess",
+      "description": "Scored recommendation: OBSERVE, SMALL_TEST, or AVOID. No wallet needed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vault": { "type": "string", "enum": ["WISH","TIME","LOVE","XYZT","FACE","CHINESE","SPACE","LOVE_BASE","TAICHI"] },
+          "amount": { "type": "string" },
+          "days": { "type": "number" }
+        },
+        "required": ["vault", "amount", "days"]
+      }
+    },
+    {
+      "name": "knab_dashboard",
+      "description": "Pool reserves, stability windows, coverage ratio, health score. No wallet needed.",
+      "input_schema": { "type": "object", "properties": {}, "required": [] }
+    },
+    {
+      "name": "knab_verify",
+      "description": "Preflight verification: live prices, pool balances, source verification, control surface. No wallet needed.",
+      "input_schema": { "type": "object", "properties": {}, "required": [] }
+    },
+    {
+      "name": "knab_research",
+      "description": "Research a vault: on-chain transactions, top holders, profits. No wallet needed.",
+      "input_schema": {
+        "type": "object",
+        "properties": { "vault": { "type": "string", "description": "Vault name, e.g. 'WISH'" } },
+        "required": ["vault"]
+      }
+    },
+    {
+      "name": "knab_discover",
+      "description": "Scan all 9 vaults across 3 chains. Build opportunity report. No wallet needed.",
+      "input_schema": { "type": "object", "properties": {}, "required": [] }
+    }
+  ],
+
+  "quickstart": {
+    "description": "All tools are read-only. No wallet needed.",
+    "steps": [
+      "knab_discover() → scan all vaults",
+      "knab_research({ vault: 'WISH' }) → read on-chain data",
+      "knab_verify() → check contracts",
+      "knab_dashboard() → pool health"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "postcard_count": 0,
+  "last_exploration": null,
+  "last_postcard": null,
+  "last_successful_exploration": null,
+  "consecutive_exploration_failures": 0,
+  "exploration_phase": "cold_start",
+  "cold_start_progress": 0,
+  "daily_message_count": 0,
+  "daily_message_reset": null,
+  "exploration_history": [],
+  "search_tool": null,
+  "feedback_stats": { "likes": 0, "dislikes": 0 }
+}

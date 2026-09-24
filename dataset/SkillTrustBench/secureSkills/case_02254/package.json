@@ -1,0 +1,27 @@
+{
+  "name": "grid-trading-pro",
+  "version": "1.0.0",
+  "description": "Enhanced grid trading bot with auto-adjust, multi-coin support, and auto-compound",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js",
+    "start": "node examples/run-bot.js"
+  },
+  "keywords": [
+    "grid-trading",
+    "binance",
+    "crypto",
+    "trading-bot",
+    "passive-income",
+    "openclaw",
+    "skill"
+  ],
+  "author": "OpenClaw Agent",
+  "license": "MIT",
+  "dependencies": {
+    "ccxt": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

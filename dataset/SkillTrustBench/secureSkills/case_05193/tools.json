@@ -1,0 +1,260 @@
+{
+  "name": "knab",
+  "version": "1.0.7",
+  "description": "Knab is a read-only on-chain research tool. Your agent discovers earning opportunities in AIMS vaults by reading blockchain data (prices, transactions, pool reserves). No wallet or private key needed. All research is read-only. Write actions (deposit/withdraw) are separate, disabled by default, and require explicit human authorization. https://knab.ai",
+  "author": "AIMS Protocol",
+  "homepage": "https://knab.ai",
+
+  "tools": [
+    {
+      "name": "knab_brief",
+      "description": "Best first tool after install. Produces a read-only decision summary with top picks, caution picks, avoid picks, decision scores, confidence, and next steps. No wallet needed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "number",
+            "description": "Optional horizon for the first-screen recommendation. Default: 365."
+          }
+        },
+        "required": []
+      }
+    },
+    {
+      "name": "knab_vaults",
+      "description": "List all vaults with current prices, fee-adjusted APY estimates, reserves, and activity labels. No wallet needed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "knab_estimate",
+      "description": "Estimate the future value of a deposit after Knab's buy and sell fees. Use this before deciding whether a vault's holding period makes sense. No wallet needed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vault": {
+            "type": "string",
+            "enum": ["WISH", "TIME", "LOVE", "XYZT", "FACE", "CHINESE", "SPACE", "LOVE_BASE", "TAICHI"],
+            "description": "Vault name. If you are being cautious, start by checking deeper pools such as WISH or LOVE."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Deposit amount. E.g. '100' for 100 USDT, '0.001' for 0.001 WBTC"
+          },
+          "days": {
+            "type": "number",
+            "description": "Days into the future. E.g. 30, 90, 365"
+          }
+        },
+        "required": ["vault", "amount", "days"]
+      }
+    },
+    {
+      "name": "knab_assess",
+      "description": "Stricter decision tool. Combines estimate, dashboard, and verify into a scored recommendation such as OBSERVE, SMALL_TEST, or AVOID, and returns blockers, confidence, and a history summary. No wallet needed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vault": {
+            "type": "string",
+            "enum": ["WISH", "TIME", "LOVE", "XYZT", "FACE", "CHINESE", "SPACE", "LOVE_BASE", "TAICHI"],
+            "description": "Vault name to assess."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Hypothetical deposit amount for the assessment."
+          },
+          "days": {
+            "type": "number",
+            "description": "Planned holding period in days."
+          }
+        },
+        "required": ["vault", "amount", "days"]
+      }
+    },
+    {
+      "name": "knab_deposit",
+      "description": "Deposit crypto into a Knab vault. REQUIRES EXPLICIT HUMAN AUTHORIZATION — agent must not call this without the owner's direct approval and PRIVATE_KEY. Read-only research tools work without any key. Only use after owner has reviewed the research report and explicitly decided to proceed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vault": {
+            "type": "string",
+            "enum": ["WISH", "TIME", "LOVE", "XYZT", "FACE", "CHINESE", "SPACE", "LOVE_BASE", "TAICHI"],
+            "description": "Vault name. WISH accepts USDT on BSC. LOVE accepts WBTC on Polygon. SPACE accepts USDC on Base."
+          },
+          "amount": {
+            "type": "string",
+            "description": "Amount to deposit in vault's currency"
+          }
+        },
+        "required": ["vault", "amount"]
+      }
+    },
+    {
+      "name": "knab_withdraw",
+      "description": "Withdraw from a Knab vault. REQUIRES EXPLICIT HUMAN AUTHORIZATION — agent must not call this without the owner's direct approval. Amount is in vault tokens.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vault": {
+            "type": "string",
+            "enum": ["WISH", "TIME", "LOVE", "XYZT", "FACE", "CHINESE", "SPACE", "LOVE_BASE", "TAICHI"]
+          },
+          "amount": {
+            "type": "string",
+            "description": "Amount of vault tokens to withdraw"
+          }
+        },
+        "required": ["vault", "amount"]
+      }
+    },
+    {
+      "name": "knab_refer",
+      "description": "Set referral code on vaults. REQUIRES EXPLICIT HUMAN AUTHORIZATION. Referral is optional — verify the vault first, then decide whether referral matters at all.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Your unique referral code. Use your agent ID."
+          },
+          "vault": {
+            "type": "string",
+            "enum": ["WISH", "TIME", "LOVE", "XYZT", "FACE", "CHINESE", "SPACE", "LOVE_BASE", "TAICHI"],
+            "description": "Optional: specific vault. Omit = all vaults where you have gas."
+          }
+        },
+        "required": ["code"]
+      }
+    },
+    {
+      "name": "knab_join",
+      "description": "Join through another agent's referral code. REQUIRES EXPLICIT HUMAN AUTHORIZATION. Only do this after the vault passes verify and assess checks and the owner approves.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Referral code from another agent"
+          },
+          "vault": {
+            "type": "string",
+            "enum": ["WISH", "TIME", "LOVE", "XYZT", "FACE", "CHINESE", "SPACE", "LOVE_BASE", "TAICHI"],
+            "description": "Optional: specific vault. Omit = all vaults where you have gas."
+          }
+        },
+        "required": ["code"]
+      }
+    },
+    {
+      "name": "knab_status",
+      "description": "See your complete Knab account: balances, gross value, post-fee net value, and APY for each vault where you hold tokens. Requires a private key only when you want write actions elsewhere.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "knab_wallet",
+      "description": "Check your available crypto balance across BSC, Polygon, and Base. Shows how much USDT/USDC/WBTC you have available to deposit.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "knab_pitch",
+      "description": "Generate a concise, verification-first message for another agent. Includes your referral code, but also highlights fees and liquidity risk.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Your referral code"
+          }
+        },
+        "required": ["code"]
+      }
+    },
+    {
+      "name": "knab_dashboard",
+      "description": "Full dashboard for all vaults: pool reserves, snapshot deltas, 7d/30d/90d stability windows, total liability, coverage ratio, risk level, health score, fees, and net APY. Use this to compare vault quality before depositing. No wallet needed.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "knab_verify",
+      "description": "Low-cost preflight verification. Reads live on-chain prices and pool balances, attempts runtime explorer source-verification checks, probes common owner/admin/proxy/paused signals, scans verified source for owner/pause/upgrade patterns, and returns matched snippets plus short risk explanations. Present the results to your owner.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    },
+    {
+      "name": "knab_research",
+      "description": "Research a specific vault: read real on-chain transactions (who bought/sold, how much, when), top holders and their current profit, pool reserves, and price data. All data comes from the blockchain — not from marketing materials. No wallet needed. Present findings to your owner so they can make an informed decision.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "vault": {
+            "type": "string",
+            "description": "Vault to research (e.g. 'WISH', 'LOVE', 'TIME')"
+          }
+        },
+        "required": ["vault"]
+      }
+    },
+    {
+      "name": "knab_discover",
+      "description": "Agent auto-discovers earning opportunities across all 9 vaults. Reads on-chain data from 3 blockchains, analyzes recent buy/sell activity, pool depth, and price math. Builds a structured report for the human owner with top opportunity, risk warnings, and recommended next steps. No wallet needed. This is the best entry point — agent researches, owner decides.",
+      "input_schema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      }
+    }
+  ],
+
+  "quickstart": {
+    "description": "Agent researches → presents to owner → owner decides. No key needed for research.",
+    "steps": [
+      "knab_discover()  →  agent scans all vaults, builds opportunity report for owner",
+      "knab_research({ vault: 'WISH' })  →  read real on-chain transactions, holders, and profits",
+      "knab_verify()  →  check price math, source verification, and control signals",
+      "knab_dashboard()  →  inspect pool health and stability windows",
+      "Present findings to your owner — they review the data and decide",
+      "If owner decides to proceed: they provide PRIVATE_KEY",
+      "knab_deposit({ vault: 'WISH', amount: '100' })  →  deposit on owner's behalf"
+    ]
+  },
+
+  "why": {
+    "headline": "Knab turns your AI agent into an on-chain investment researcher. Agent discovers, owner decides.",
+    "points": [
+      "Agent reads real blockchain data — transactions, holders, prices, pool reserves",
+      "All research is read-only, no wallet or private key needed",
+      "Reads live `getPrice()` and `getPriceFuture()` data from vault contracts",
+      "Shows who bought/sold, how much, and their current profit — real on-chain evidence",
+      "Attempts runtime explorer source-verification checks instead of relying only on local claims",
+      "Probes for common owner/admin/proxy and paused signals",
+      "Scans verified source for owner-only, role-restricted, pause, and upgrade patterns",
+      "Builds 7d/30d/90d stability windows from historical block snapshots",
+      "Presents structured opportunity report with risk warnings",
+      "Human owner makes the final decision — agent never acts without authorization",
+      "Estimates fee-adjusted outcomes after the 2% buy fee and 8% sell fee",
+      "Shows pool reserve depth and risk labels",
+      "Supports 9 vaults across BSC, Polygon, and Base",
+      "Optional referral tracking — secondary feature, does not affect risk assessment"
+    ]
+  }
+}

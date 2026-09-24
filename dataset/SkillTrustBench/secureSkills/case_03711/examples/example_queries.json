@@ -1,0 +1,52 @@
+{
+  "examples": [
+    {
+      "name": "简单城市查询",
+      "description": "只指定城市的基本查询",
+      "query": "[{\"subQuery\":\"东京酒店\"}]",
+      "expected_behavior": "返回东京的热门酒店推荐"
+    },
+    {
+      "name": "地标附近查询",
+      "description": "在指定地标附近搜索酒店",
+      "query": "[{\"subQuery\":\"香港迪士尼附近酒店\",\"city\":\"香港\",\"country\":\"中国\",\"nearby\":\"迪士尼乐园\"}]",
+      "expected_behavior": "返回迪士尼乐园附近的酒店"
+    },
+    {
+      "name": "品牌酒店查询",
+      "description": "搜索特定品牌的酒店",
+      "query": "[{\"subQuery\":\"纽约希爾顿酒店\",\"city\":\"纽约\",\"country\":\"美国\",\"brandNames\":[\"希爾顿\"]}]",
+      "expected_behavior": "返回纽约的希尔顿酒店"
+    },
+    {
+      "name": "多城市查询",
+      "description": "同时搜索多个城市的酒店",
+      "query": "[{\"subQuery\":\"大阪酒店\",\"city\":\"大阪\",\"country\":\"日本\"},{\"subQuery\":\"京都酒店\",\"city\":\"京都\",\"country\":\"日本\"}]",
+      "expected_behavior": "分别返回大阪和京都的酒店推荐"
+    },
+    {
+      "name": "具体酒店查询",
+      "description": "搜索具体的酒店名称",
+      "query": "[{\"subQuery\":\"巴黎著名酒店\",\"city\":\"巴黎\",\"country\":\"法国\",\"hotelNames\":[\"巴黎丽兹酒店\"]}]",
+      "expected_behavior": "返回巴黎丽兹酒店的信息"
+    },
+    {
+      "name": "完整参数查询",
+      "description": "包含所有查询参数的示例",
+      "query": "[{\"subQuery\":\"新加坡鱼尾狮公园附近豪华酒店\",\"checkInDate\":\"2026-03-22\",\"checkOutDate\":\"2026-03-23\",\"city\":\"新加坡\",\"country\":\"新加坡\",\"nearby\":\"鱼尾狮公园\",\"brandNames\":[\"万豪\",\"希尔顿\"]}]",
+      "expected_behavior": "返回鱼尾狮公园附近的万豪和希尔顿酒店"
+    },
+    {
+      "name": "复合条件查询",
+      "description": "多个条件的复合查询",
+      "query": "[{\"subQuery\":\"上海外滩附近五星级酒店\",\"city\":\"上海\",\"country\":\"中国\",\"nearby\":\"外滩\"}]",
+      "expected_behavior": "返回外滩附近的五星级酒店"
+    },
+    {
+      "name": "商务出行查询",
+      "description": "商务出行常用的查询",
+      "query": "[{\"subQuery\":\"北京国贸附近商务酒店\",\"city\":\"北京\",\"country\":\"中国\",\"nearby\":\"国贸\",\"brandNames\":[\"万豪\",\"希尔顿\"]}]",
+      "expected_behavior": "返回国贸附近的万豪和希尔顿商务酒店"
+    }
+  ]
+}

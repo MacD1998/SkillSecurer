@@ -1,0 +1,19 @@
+{
+  "name": "therapy-prep",
+  "description": "Help users prepare for therapy or counseling sessions by organizing thoughts, clarifying goals, identifying patterns, and structuring what to bring up. Use when the user has an upcoming therapy appointment and wants to make the most of it, or wants to reflect on what to discuss.",
+  "version": "1.0.0",
+  "author": "Harry",
+  "tags": ["psychology", "therapy", "preparation", "counseling"],
+  "safety": {
+    "no_diagnosis": true,
+    "no_treatment": true,
+    "crisis_escalation": true,
+    "disclaimer_required": true
+  },
+  "modules": {
+    "prep": "scripts/prep.py",
+    "crisis": "scripts/crisis_detector.py",
+    "topic_organizer": "scripts/topic_organizer.py"
+  },
+  "entry": "scripts/prep.py"
+}

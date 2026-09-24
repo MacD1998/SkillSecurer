@@ -1,0 +1,9 @@
+{
+  "name": "daily-idiom",
+  "version": "1.0.0",
+  "description": "\u6bcf\u65e5\u6210\u8bed",
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

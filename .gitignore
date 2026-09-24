@@ -1,0 +1,53 @@
+# Secrets
+.env
+.env.local
+*.key
+
+# Risultati run
+*.json.tmp
+
+# Risultati benchmark — ignora tutto tranne gli esempi
+results/*
+!results/examples/
+!results/examples/**
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.clinerules
+.cursor
+.github
+.opencode
+.windsurf
+.claude/
+
+# OS
+# Alternate Data Streams that Windows attaches to downloaded files. They carry
+# nothing but `[ZoneTransfer] ZoneId=3`, and the `:` in their name makes the
+# whole repository impossible to check out on Windows — `git clone` aborts with
+# "invalid path". Seven of them had been committed alongside the screenshots.
+*:Zone.Identifier
+.DS_Store
+Thumbs.db
+
+# Docker artifacts
+*.tar
+docker/build_cache/
+
+# Logs
+*.log
+agent_log.txt
+
+# dataset
+/dataset/skills_sh_dataset/
+/dataset/skills_inj_contextual
+/dataset/skills_inj_obv

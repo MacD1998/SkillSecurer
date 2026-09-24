@@ -1,0 +1,35 @@
+{
+  "name": "english-daily",
+  "version": "1.0.0",
+  "description": "English Daily — 每日英语学习 Skill。内置A1-B2单词库，SRS间隔重复，每日推送，测验练习，进度追踪连续打卡。Built-in A1-B2 word bank, spaced repetition, daily push, quiz, streaks.",
+  "keywords": [
+    "学英语",
+    "英语单词",
+    "每日单词",
+    "英语练习",
+    "词汇",
+    "测验",
+    "打卡",
+    "间隔重复",
+    "每日推送",
+    "English learning",
+    "vocabulary",
+    "daily words",
+    "quiz",
+    "streak",
+    "spaced repetition",
+    "CEFR",
+    "word bank"
+  ],
+  "author": "jiajiaoy",
+  "license": "MIT",
+  "scripts": {
+    "register": "node scripts/register.js",
+    "daily": "node scripts/daily-push.js",
+    "quiz": "node scripts/quiz.js",
+    "progress": "node scripts/progress.js",
+    "push-on": "node scripts/push-toggle.js on",
+    "push-off": "node scripts/push-toggle.js off",
+    "push-status": "node scripts/push-toggle.js status"
+  }
+}

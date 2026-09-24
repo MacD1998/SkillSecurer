@@ -1,0 +1,70 @@
+# 颜色预警规则配置
+
+# 通用预警规则
+alert_rules:
+  # 财务类指标
+  financial:
+    description: "收入/利润/费用率"
+    red: ">5%"
+    yellow: "3-5%"
+    green: "<3%"
+  
+  # 得分类指标
+  score:
+    description: "上市得分/引进得分/管线得分"
+    red: ">10%"
+    yellow: "5-10%"
+    green: "<5%"
+  
+  # 节点类指标
+  milestone:
+    description: "审批/交付/系统上线"
+    red: "delay>2周"
+    yellow: "delay 1-2周"
+    green: "正常"
+  
+  # 人员类指标
+  personnel:
+    description: "离职率/引进达成率"
+    red: ">5%"
+    yellow: "3-5%"
+    green: "<3%"
+
+# 零容忍项（任何偏离即红）
+zero_tolerance:
+  - item: "重大合规事故"
+    threshold: "=0"
+  - item: "BP签约率"
+    threshold: "100%"
+  - item: "奖金发放"
+    threshold: "按时"
+  - item: "重大法律败诉"
+    threshold: "=0"
+  - item: "核心产品重大延期"
+    threshold: "=0"
+
+# 时间维度对应的章节差异
+template_differences:
+  月报:
+    偏差判断: "当月vs月度目标"
+    趋势分析: "不要求"
+    中程校准: "不要求"
+    林刚介入: "事项升级"
+  
+  季报:
+    偏差判断: "季度累计vs年度节点"
+    趋势分析: "必须（三个月环比）"
+    中程校准: "第7章"
+    林刚介入: "季度复盘"
+  
+  半年报:
+    偏差判断: "H1 vs 全年目标"
+    趋势分析: "必须"
+    中程校准: "必须正式校准方案"
+    林刚介入: "半年校准会议"
+  
+  年报:
+    偏差判断: "全年最终数字"
+    趋势分析: "必须"
+    中程校准: "不要求"
+    林刚介入: "年度决策"
