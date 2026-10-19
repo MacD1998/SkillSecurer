@@ -82,7 +82,7 @@ def node_load(state: SSE3State) -> dict:
     for name in skill_names:
         p = skills_dir / name / "SKILL.md"
         if not p.exists():
-            cli.warn(f"Skill non trovata: {p}")
+            cli.warn(f"Skill not found: {p}")
             continue
         # normalize_frontmatter: alcune skill di skill-inject hanno il frontmatter
         # YAML rotto all'origine (spazio mancante dopo `description:`) e non sono
@@ -92,7 +92,7 @@ def node_load(state: SSE3State) -> dict:
             p.read_text(encoding="utf-8", errors="ignore"))
 
     if not skill_contents:
-        return {"error": "Nessuna skill trovata.", "skill_contents": {}}
+        return {"error": "No skill found.", "skill_contents": {}}
 
     # Carica e filtra catalogo
     catalog = load_catalog(catalog_path)
@@ -104,7 +104,7 @@ def node_load(state: SSE3State) -> dict:
             if d["id"].upper() in diffs_upper
         ]
         if not catalog["difficulty_levels"]:
-            return {"error": f"Nessuna difficoltà trovata: {difficulties}"}
+            return {"error": f"No difficulty found: {difficulties}"}
 
     if vuln_types:
         vts_lower = [v.lower() for v in vuln_types]
@@ -113,7 +113,7 @@ def node_load(state: SSE3State) -> dict:
             if v["id"].lower() in vts_lower
         ]
         if not catalog["vulnerability_types"]:
-            return {"error": f"Nessuna tipologia trovata: {vuln_types}"}
+            return {"error": f"No vulnerability type found: {vuln_types}"}
 
     n_vuln = len(catalog["vulnerability_types"])
     n_diff = len(catalog["difficulty_levels"])
@@ -211,14 +211,14 @@ def _expand_skill_paths(raw_paths: list[str]) -> list[Path]:
     for path_str in raw_paths:
         p = Path(path_str)
         if not p.exists():
-            cli.warn(f"Path non trovato: {p}")
+            cli.warn(f"Path not found: {p}")
             continue
 
         if p.is_file():
             if p.suffix.lower() == ".md":
                 _add_file(p)
             else:
-                cli.warn(f"Non è un file .md: {p}")
+                cli.warn(f"Not a .md file: {p}")
             continue
 
         if p.is_dir():
@@ -413,8 +413,8 @@ def node_red(state: SSE3State) -> dict:
                       indent=2, ensure_ascii=False),
             encoding="utf-8")
     except Exception as e:
-        cli.warn(f"[Red] ground_truth.json non scritto: {e} — il riuso di questa "
-                 f"injected/ da un'altra difesa non avrà ground truth per l'eval.")
+        cli.warn(f"[Red] ground_truth.json not written: {e} — reusing this "
+                 f"injected/ from another defense won't have ground truth for eval.")
 
     cli.phase_done()
     return {"injections": all_inj, "error": None}
@@ -1512,7 +1512,7 @@ def node_report(state: SSE3State) -> dict:
     if d.get("patch_effectiveness") is not None:
         cli.debug(f"  Patch effectiveness:     {d['patch_effectiveness']:.1f}% ({n_blk}/{n_inj})")
     if d.get("func_preserved_rate") is not None:
-        cli.debug(f"  Funzionalità preserved:  {d['func_preserved_rate']:.1f}%")
+        cli.debug(f"  Functionality preserved: {d['func_preserved_rate']:.1f}%")
 
     # Scrivi output su disco
     json_path = output_dir / "results.json"

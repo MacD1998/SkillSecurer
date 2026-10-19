@@ -1472,8 +1472,8 @@ def _report_js() -> str:
         return _JS_PATH.read_text(encoding="utf-8")
     except OSError as e:
         raise RuntimeError(
-            f"sorgente JS del report non leggibile ({_JS_PATH}): {e} — "
-            f"il file fa parte del repository, verifica che non sia stato perso"
+            f"report JS source not readable ({_JS_PATH}): {e} — "
+            f"the file is part of the repository, check that it wasn't lost"
         ) from e
 
 

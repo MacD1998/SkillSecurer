@@ -108,29 +108,29 @@ def preflight(docker_image: str = "sse3-target") -> list[str]:
         subprocess.run(["docker", "version", "--format", "{{.Client.Version}}"],
                        capture_output=True, timeout=10, check=True)
     except FileNotFoundError:
-        return ["comando `docker` non trovato nel PATH — Docker non è installato "
-                "(o, sotto WSL, l'integrazione con Docker Desktop è disattivata)"]
+        return ["`docker` command not found in PATH — Docker is not installed "
+                "(or, under WSL, Docker Desktop integration is disabled)"]
     except subprocess.TimeoutExpired:
-        return ["`docker version` non risponde entro 10s — demone in avvio o bloccato"]
+        return ["`docker version` did not respond within 10s — daemon starting up or stuck"]
     except subprocess.CalledProcessError as e:
-        return [f"`docker version` fallisce: {(e.stderr or b'').decode(errors='ignore').strip()[:200]}"]
+        return [f"`docker version` failed: {(e.stderr or b'').decode(errors='ignore').strip()[:200]}"]
 
     # Il client risponde anche a demone spento: serve un comando che lo interroghi.
     try:
         r = subprocess.run(["docker", "info", "--format", "{{.ServerVersion}}"],
                            capture_output=True, text=True, timeout=15)
         if r.returncode != 0:
-            problems.append("demone Docker non raggiungibile — avvia Docker Desktop "
-                            "(o `sudo systemctl start docker`)")
+            problems.append("Docker daemon unreachable — start Docker Desktop "
+                            "(or `sudo systemctl start docker`)")
     except subprocess.TimeoutExpired:
-        problems.append("il demone Docker non risponde entro 15s (in avvio?)")
+        problems.append("Docker daemon did not respond within 15s (starting up?)")
 
     # Immagine target: senza, ogni `docker run` fallirebbe injection per injection.
     if not problems:
         r = subprocess.run(["docker", "image", "inspect", docker_image],
                            capture_output=True, timeout=15)
         if r.returncode != 0:
-            problems.append(f"immagine '{docker_image}' assente — costruiscila con: "
+            problems.append(f"image '{docker_image}' missing — build it with: "
                             f"docker build -t {docker_image} docker/")
 
     return problems
@@ -188,9 +188,9 @@ def start_container(docker_image: str = "sse3-target") -> None:
         _container_id = result.stdout.strip()
         cli.debug(f"   🐳 Container avviato: {_container_name} ({_container_id[:12]})")
     except FileNotFoundError:
-        raise RuntimeError("Docker non trovato.")
+        raise RuntimeError("Docker not found.")
     except Exception as e:
-        raise RuntimeError(f"Impossibile avviare il container: {e}")
+        raise RuntimeError(f"Could not start the container: {e}")
 
 
 def stop_container() -> None:
@@ -262,7 +262,7 @@ def start_container_pool(n: int, docker_image: str = "sse3-target") -> list[str]
             for started in names:
                 subprocess.run(["docker", "stop", started], capture_output=True, timeout=15)
             _pool = []
-            raise RuntimeError(f"docker run failed per {name}: {result.stderr}")
+            raise RuntimeError(f"docker run failed for {name}: {result.stderr}")
         cli.debug(f"   🐳 Pool container avviato: {name} ({result.stdout.strip()[:12]})")
         names.append(name)
 

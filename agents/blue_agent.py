@@ -210,26 +210,26 @@ def quote_anchor(quote: str, idx: dict) -> tuple[bool, str]:
     `idx` va costruito con build_content_index."""
     q = str(quote or "").strip()
     if not q:
-        return False, "quote mancante"
+        return False, "missing quote"
     if q.lower() in idx["raw"]:
-        return True, "esatto"
+        return True, "exact"
     if _norm_ws(q) in idx["ws"]:
-        return True, "match whitespace-tollerante"
+        return True, "whitespace-tolerant match"
     if len(_norm_nows(q)) >= 12 and _norm_nows(q) in idx["nows"]:
-        return True, "match senza-whitespace"
+        return True, "whitespace-stripped match"
     if len(_norm_loose(q)) >= 12 and _norm_loose(q) in idx["loose"]:
-        return True, "match ignorando markdown"
+        return True, "markdown-ignoring match"
     if len(_norm_esc(q)) >= 12 and _norm_esc(q) in idx["esc"]:
-        return True, "match con escape backslash"
+        return True, "backslash-escape match"
     if len(_norm_loose(q)) >= 40 and _norm_loose(q)[:40] in idx["loose"]:
         q_loose = _norm_loose(q)
         pos     = idx["loose"].find(q_loose[:40])
         window  = idx["loose"][pos: pos + len(q_loose)]
         if difflib.SequenceMatcher(None, q_loose, window).ratio() >= 0.6:
-            return True, "match ancora di prefisso, coda verificata"
-        return False, ("ancora di prefisso ok ma coda diverge troppo dal file "
-                       "(possibile coda allucinata)")
-    return False, "quote non presente nel file"
+            return True, "prefix-anchor match, tail verified"
+        return False, ("prefix anchor ok but tail diverges too much from the file "
+                       "(possible hallucinated tail)")
+    return False, "quote not present in file"
 
 
 def _verify_findings(findings: list[dict], skill_content: str,
@@ -283,15 +283,15 @@ def _verify_findings(findings: list[dict], skill_content: str,
         present, how = quote_anchor(q, idx)
         if present:
             kept.append(f)
-            if how != "esatto":
-                cli.debug(f"   [Blue] quote tenuta ({how}): {q[:60]!r}")
+            if how != "exact":
+                cli.debug(f"   [Blue] quote kept ({how}): {q[:60]!r}")
             continue
-        if how == "quote mancante":
-            cli.warn(f"[Blue] {skill_name}: finding scartato (quote mancante)")
-        elif how.startswith("ancora di prefisso"):
-            cli.warn(f"[Blue] {skill_name}: finding scartato (prefisso ok ma coda non corrisponde al file): {q[:60]!r}")
+        if how == "missing quote":
+            cli.warn(f"[Blue] {skill_name}: finding discarded (missing quote)")
+        elif how.startswith("prefix anchor"):
+            cli.warn(f"[Blue] {skill_name}: finding discarded (prefix ok but tail doesn't match the file): {q[:60]!r}")
         else:
-            cli.warn(f"[Blue] {skill_name}: finding scartato (quote non presente nel file): {q[:60]!r}")
+            cli.warn(f"[Blue] {skill_name}: finding discarded (quote not present in file): {q[:60]!r}")
         _discard(f, how)
     return kept
 

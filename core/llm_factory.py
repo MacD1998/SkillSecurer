@@ -86,8 +86,8 @@ def _detect_provider() -> str:
     explicit = os.environ.get("LLM_PROVIDER", "").lower().strip()
     if explicit:
         if explicit not in _DEFAULTS:
-            raise RuntimeError(f"LLM_PROVIDER non riconosciuto: {explicit!r}. "
-                               f"Validi: {list(_DEFAULTS.keys())}")
+            raise RuntimeError(f"LLM_PROVIDER not recognized: {explicit!r}. "
+                               f"Valid: {list(_DEFAULTS.keys())}")
         return explicit
 
     # Auto-detect
@@ -99,7 +99,7 @@ def _detect_provider() -> str:
         return "openai"
 
     raise RuntimeError(
-        "Nessuna API key trovata. Imposta una di queste env vars: "
+        "No API key found. Set one of these env vars: "
         "DEEPSEEK_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY"
     )
 
@@ -113,7 +113,7 @@ def _get_api_key(provider: str) -> str:
     }[provider]
     key = os.environ.get(env_var, "").strip()
     if not key:
-        raise RuntimeError(f"API key {env_var} non trovata o vuota")
+        raise RuntimeError(f"API key {env_var} not found or empty")
     return key
 
 
@@ -211,13 +211,13 @@ def build_llm(
         try:
             from core.token_tracker import TokenTrackingCallback
             if TokenTrackingCallback is None:
-                raise RuntimeError("TokenTrackingCallback non disponibile "
-                                   "(langchain_core.callbacks non importabile)")
+                raise RuntimeError("TokenTrackingCallback not available "
+                                   "(langchain_core.callbacks not importable)")
             kwargs["callbacks"] = [TokenTrackingCallback(agent)]
         except Exception as e:
             import core.cli_output as _cli
-            _cli.warn(f"[llm_factory] token tracking non attivo per '{agent}': {e} "
-                      f"— i costi nel report saranno incompleti")
+            _cli.warn(f"[llm_factory] token tracking not active for '{agent}': {e} "
+                      f"— costs in the report will be incomplete")
 
     # Branch openrouter → subclass che cattura il provider per-chiamata; gli altri
     # provider restano su ChatOpenAI puro (nessun campo provider da preservare).

@@ -246,7 +246,7 @@ def load_run(run_dir: Path) -> dict:
     run_dir = Path(run_dir)
     jf = run_dir / "results.json"
     if not jf.is_file():
-        raise FileNotFoundError(f"{jf} non trovato")
+        raise FileNotFoundError(f"{jf} not found")
     data = json.loads(jf.read_text(encoding="utf-8", errors="ignore"))
     by_key = {}
     for rec in data.get("findings_detail") or []:

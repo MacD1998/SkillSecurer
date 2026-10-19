@@ -71,13 +71,13 @@ def _check_api_key() -> None:
     keys = ["DEEPSEEK_API_KEY", "OPENROUTER_API_KEY", "OPENAI_API_KEY"]
     available = [k for k in keys if os.environ.get(k)]
     if not available:
-        cli.error("Nessuna API key trovata. Imposta una di queste env vars nel .env: "
+        cli.error("No API key found. Set one of these env vars in .env: "
                   + ", ".join(keys))
         sys.exit(1)
     # Provider in uso → solo in debug
     explicit = os.environ.get("LLM_PROVIDER", "").strip()
     if explicit:
-        cli.debug(f"  🔑 Provider esplicito: {explicit}")
+        cli.debug(f"  🔑 Explicit provider: {explicit}")
     else:
         provider = {
             "DEEPSEEK_API_KEY":  "deepseek",
@@ -100,10 +100,10 @@ def _check_docker(docker_image: str) -> None:
     problems = preflight(docker_image)
     if not problems:
         return
-    cli.error("Il tester richiede Docker, ma l'ambiente non è pronto:")
+    cli.error("The tester requires Docker, but the environment isn't ready:")
     for p in problems:
         cli.error(f"  • {p}")
-    cli.error("Nessuna chiamata LLM è stata effettuata: risolvi e rilancia.")
+    cli.error("No LLM calls were made: fix this and re-run.")
     sys.exit(1)
 
 
@@ -111,10 +111,10 @@ def _print_header(args: argparse.Namespace, pipeline: str) -> None:
     # Header dettagliato → debug; l'header pulito del run è emesso da node_load.
     cli.debug(f"  SSE3 — Pipeline: {pipeline.upper()}")
     if pipeline == "full":
-        cli.debug(f"  Skill: {args.skills}  Difficoltà: {args.difficulties}  Tipologie: {args.vuln_types}")
+        cli.debug(f"  Skills: {args.skills}  Difficulties: {args.difficulties}  Vuln types: {args.vuln_types}")
         cli.debug(f"  Attempts: {args.max_attempts}  Parallel: {getattr(args,'parallel',4)}")
     elif pipeline == "red-only":
-        cli.debug(f"  Skill: {args.skills}  Difficoltà: {args.difficulties}  Tipologie: {args.vuln_types}")
+        cli.debug(f"  Skills: {args.skills}  Difficulties: {args.difficulties}  Vuln types: {args.vuln_types}")
         cli.debug(f"  Parallel: {getattr(args,'parallel',4)}")
     elif pipeline == "blue-only":
         cli.debug(f"  Input skills: {args.input_skills}")
@@ -132,118 +132,118 @@ def main():
         "--pipeline",
         choices=["full", "red-only", "blue-only", "blue-eval", "blue-eval-testing", "custom"],
         default="full",
-        help="Pipeline da eseguire (default: full)"
+        help="Pipeline to run (default: full)"
     )
 
     # ── Output (comune a tutte le pipeline) ──────────────────────────
     parser.add_argument(
         "--output", required=True,
-        help="Cartella di output per i risultati"
+        help="Output folder for results"
     )
     parser.add_argument(
         "--notes", default=None,
-        help="Nota libera sul test, salvata nel report (results.json + MD/PDF/HTML)"
+        help="Free-text note about the test, saved into the report (results.json + MD/PDF/HTML)"
     )
     parser.add_argument(
         "--input-price", type=float, default=None,
-        help="Costo per 1M token di input (USD) — abilita la stima di costo nel report"
+        help="Cost per 1M input tokens (USD) — enables the cost estimate in the report"
     )
     parser.add_argument(
         "--output-price", type=float, default=None,
-        help="Costo per 1M token di output (USD) — abilita la stima di costo nel report"
+        help="Cost per 1M output tokens (USD) — enables the cost estimate in the report"
     )
     parser.add_argument(
         "--defense", nargs="+", default=None, metavar="ENGINE",
         choices=list(DEFENSE_ENGINES),
-        help="Motori di difesa da eseguire su ogni skill: "
-             + " ".join(DEFENSE_ENGINES) + ". Sono difese ALTERNATIVE, non un "
-             "confronto: si esegue un giro col solo 'blue', un altro col solo "
-             "'cisco', e si confrontano i due report a posteriori. "
-             "Default (flag assente): 'blue'. eval e tester richiedono 'blue' fra i "
-             "motori — le pipeline full/blue-eval/blue-eval-testing lo esigono."
+        help="Defense engines to run on each skill: "
+             + " ".join(DEFENSE_ENGINES) + ". These are ALTERNATIVE defenses, not a "
+             "comparison: run one pass with only 'blue', another with only "
+             "'cisco', then compare the two reports afterwards. "
+             "Default (flag absent): 'blue'. eval and tester require 'blue' among the "
+             "engines — the full/blue-eval/blue-eval-testing pipelines enforce it."
     )
     parser.add_argument(
         "--with-snyk", action="store_true",
-        help="Alias additivo di --defense snyk (compatibilità)."
+        help="Additive alias for --defense snyk (compatibility)."
     )
     parser.add_argument(
         "--with-skillspector", action="store_true",
-        help="Alias additivo di --defense skillspector (compatibilità)."
+        help="Additive alias for --defense skillspector (compatibility)."
     )
     parser.add_argument(
         "--with-cisco", action="store_true",
-        help="Alias additivo di --defense cisco (compatibilità)."
+        help="Additive alias for --defense cisco (compatibility)."
     )
     parser.add_argument(
         "--with-aig", action="store_true",
-        help="Alias additivo di --defense aig (compatibilità). Tencent aig-skill-scan "
-             "(SkillTrustBench T01-T09) — motore LLM-only, nessuna variante --no-llm."
+        help="Additive alias for --defense aig (compatibility). Tencent aig-skill-scan "
+             "(SkillTrustBench T01-T09) — LLM-only engine, no --no-llm variant."
     )
     parser.add_argument(
         "--with-skill-vetter", action="store_true",
-        help="Alias additivo di --defense skill_vetter (compatibilità). \"skill-vetter\" "
-             "(OpenClaw skill, MIT-0) riprodotto via LLM — motore LLM-only, nessuna "
-             "variante --no-llm (vedi agents/skill_vetter_scanner.py)."
+        help="Additive alias for --defense skill_vetter (compatibility). \"skill-vetter\" "
+             "(OpenClaw skill, MIT-0) reproduced via LLM — LLM-only engine, no "
+             "--no-llm variant (see agents/skill_vetter_scanner.py)."
     )
     parser.add_argument(
         "--with-skills-sh", action="store_true",
-        help="Alias additivo di --defense skills_sh (compatibilità). Nessuno scan "
-             "live: legge il verdetto già calcolato da skills.sh (3 motori: "
-             "agentTrustHub, socket, snyk — meta.json di skills_sh_dataset accanto al "
-             "file), no-op per le skill fuori dal dataset."
+        help="Additive alias for --defense skills_sh (compatibility). No live scan: "
+             "reads the verdict already computed by skills.sh (3 engines: "
+             "agentTrustHub, socket, snyk — meta.json in skills_sh_dataset next to "
+             "the file), no-op for skills outside the dataset."
     )
     parser.add_argument(
         "--skillspector-no-llm", action="store_true",
-        help="Forza SkillSpector a scan solo-statico (regex/AST/YARA/OSV.dev) anche "
-             "con credenziali LLM disponibili — per confrontare i risultati con/senza "
-             "LLM a parità di skill. No-op se skillspector non è tra i motori richiesti."
+        help="Force SkillSpector to static-only scan (regex/AST/YARA/OSV.dev) even "
+             "with LLM credentials available — to compare results with/without "
+             "LLM on the same skill. No-op if skillspector isn't among the requested engines."
     )
     parser.add_argument(
         "--cisco-no-llm", action="store_true",
-        help="Forza Cisco skill-scanner a scan solo-statico anche con credenziali LLM "
-             "disponibili — per confrontare i risultati con/senza LLM a parità di "
-             "skill. No-op se cisco non è tra i motori richiesti."
+        help="Force Cisco skill-scanner to static-only scan even with LLM credentials "
+             "available — to compare results with/without LLM on the same "
+             "skill. No-op if cisco isn't among the requested engines."
     )
 
     # ── Parametri pipeline full ───────────────────────────────────────
     full = parser.add_argument_group("Pipeline: full")
     full.add_argument(
         "--skills", nargs="+", default=None,
-        help="Nomi delle skill da testare (es. git calendar)"
+        help="Names of the skills to test (e.g. git calendar)"
     )
     full.add_argument(
         "--max-files", type=int, default=None,
-        help="Limita il numero di injection generate (safety net)"
+        help="Cap the number of generated injections (safety net)"
     )
     full.add_argument(
         "--parallel", type=int, default=20,
-        help="Worker paralleli per red/blue + container nel pool del tester"
+        help="Parallel workers for red/blue + containers in the tester pool"
     )
     full.add_argument(
         "--max-attempts", type=int, default=5,
-        help="Numero di prompt legittimi generati e replayati su "
-             "BASE/INJECTED/FIXED per ogni injection"
+        help="Number of legitimate prompts generated and replayed on "
+             "BASE/INJECTED/FIXED per injection"
     )
     full.add_argument(
         "--difficulties", nargs="+", default=None, metavar="K",
-        help="Filtra per difficoltà: K1 K2 K3"
+        help="Filter by difficulty: K1 K2 K3"
     )
     full.add_argument(
         "--vuln-types", nargs="+", default=None, metavar="TYPE",
-        help="Filtra per tipologia: data_exfiltration supply_chain ..."
+        help="Filter by type: data_exfiltration supply_chain ..."
     )
     full.add_argument(
         "--skills-dir", default=None,
-        help="Directory delle skill base (default: skill-inject/data/skills)"
+        help="Base skills directory (default: skill-inject/data/skills)"
     )
 
     # ── Parametri pipeline blue-only ──────────────────────────────────
     blue = parser.add_argument_group("Pipeline: blue-only")
     blue.add_argument(
         "--input-skills", nargs="+", default=None, metavar="PATH",
-        help="Path ai file SKILL.md o cartelle da analizzare. "
-             "Cartelle vengono scansionate ricorsivamente. "
-             "Esempio: --input-skills file1.md SKILLS/ shared/skills/"
+        help="Path to SKILL.md files or folders to audit. "
+             "Folders are scanned recursively. "
+             "Example: --input-skills file1.md SKILLS/ shared/skills/"
     )
 
     # ── Parametri pipeline blue-eval ──────────────────────────────────
@@ -251,26 +251,26 @@ def main():
     beval.add_argument(
         "--skill-inject-categories", choices=["obvious", "contextual", "both"],
         default="both",
-        help="Categorie di injection skill-inject da valutare (default: both)"
+        help="skill-inject injection categories to evaluate (default: both)"
     )
     beval.add_argument(
         "--skill-inject-skills", nargs="+", default=None, metavar="SKILL",
-        help="Filtra per tipo di skill (es. docx pptx calendar). Default: tutte."
+        help="Filter by skill type (e.g. docx pptx calendar). Default: all."
     )
     beval.add_argument(
         "--skill-inject-path", default="skill-inject",
-        help="Path al repo skill-inject (default: skill-inject/ relativo alla root)"
+        help="Path to the skill-inject repo (default: skill-inject/ relative to the project root)"
     )
 
     # ── Parametri pipeline custom ─────────────────────────────────────
     custom = parser.add_argument_group("Pipeline: custom")
     custom.add_argument(
         "--config", default=None,
-        help="Path a un file JSON di PipelineConfig (pipeline custom)"
+        help="Path to a PipelineConfig JSON file (custom pipeline)"
     )
     custom.add_argument(
         "--preset", default=None,
-        help="Nome di un preset custom salvato in pipelines/custom/ (pipeline custom)"
+        help="Name of a custom preset saved in pipelines/custom/ (custom pipeline)"
     )
 
     # ── Docker (comune) ───────────────────────────────────────────────
@@ -297,17 +297,17 @@ def main():
         except Exception as e:
             # Non blocca il run (il pannello live è un accessorio), ma il
             # silenzio faceva sembrare rotta la WebUI senza alcun indizio.
-            cli.warn(f"Token live disabilitati: {e} — il pannello token/costo "
-                     f"della WebUI resterà vuoto (il report finale è comunque completo)")
+            cli.warn(f"Live token tracking disabled: {e} — the WebUI token/cost "
+                     f"panel will stay empty (the final report is still complete)")
 
     # Le pipeline fisse diverse da blue-only eseguono eval e/o tester, che si
     # reggono sui finding e sulla patch del Blue: una difesa senza 'blue' le
     # renderebbe vuote. Stesso gate applicato dal validatore della custom.
     engines = _defense_from_args(args, implicit_blue=args.pipeline != "custom")
     if args.pipeline in ("full", "blue-eval", "blue-eval-testing") and "blue" not in engines:
-        parser.error(f"--defense: la pipeline {args.pipeline} richiede il motore 'blue' "
-                     f"(esegue eval e/o tester, che valutano i suoi finding e la sua patch). "
-                     f"Per eseguire i soli motori terzi usa --pipeline blue-only.")
+        parser.error(f"--defense: the {args.pipeline} pipeline requires the 'blue' engine "
+                     f"(it runs eval and/or tester, which evaluate its findings and its patch). "
+                     f"To run only third-party engines use --pipeline blue-only.")
 
     # Proxy locale per token/costo REALI di skillspector/cisco/aig (girano come
     # subprocesso esterno, altrimenti invisibili a token_tracker — vedi
@@ -321,7 +321,7 @@ def main():
     # ── Pipeline: full ────────────────────────────────────────────────
     if args.pipeline == "full":
         if not args.skills:
-            parser.error("--skills è obbligatorio per la pipeline full")
+            parser.error("--skills is required for the full pipeline")
         _check_docker(args.docker_image)   # la full esegue sempre il tester
 
         from graph import SSE3State
@@ -352,7 +352,7 @@ def main():
     # ── Pipeline: red-only ──────────────────────────────────────────────
     elif args.pipeline == "red-only":
         if not args.skills:
-            parser.error("--skills è obbligatorio per la pipeline red-only")
+            parser.error("--skills is required for the red-only pipeline")
 
         from graph import SSE3State
         from pipelines import red_only
@@ -382,7 +382,7 @@ def main():
     # ── Pipeline: blue-only ───────────────────────────────────────────
     elif args.pipeline == "blue-only":
         if not args.input_skills:
-            parser.error("--input-skills è obbligatorio per la pipeline blue-only")
+            parser.error("--input-skills is required for the blue-only pipeline")
 
         from graph import SSE3State
         from pipelines import blue_only
@@ -471,14 +471,14 @@ def main():
         from pipelines.custom_config import PipelineConfig, validate_or_raise
 
         if bool(args.config) == bool(args.preset):
-            parser.error("custom: specifica esattamente uno tra --config e --preset")
+            parser.error("custom: specify exactly one of --config and --preset")
 
         if args.config:
             cfg_path = Path(args.config)
             if not cfg_path.is_absolute():
                 cfg_path = base / cfg_path
             if not cfg_path.exists():
-                cli.error(f"Config non trovata: {cfg_path}")
+                cli.error(f"Config not found: {cfg_path}")
                 sys.exit(1)
             cfg = PipelineConfig.from_dict(_json.loads(cfg_path.read_text(encoding="utf-8")))
         else:

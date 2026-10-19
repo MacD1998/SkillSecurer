@@ -127,12 +127,12 @@ def load_records(
     for category in categories:
         jf = data_dir / _CATEGORY_FILES[category]
         if not jf.exists():
-            cli.warn(f"[skill-inject] file non trovato: {jf}")
+            cli.warn(f"[skill-inject] file not found: {jf}")
             continue
         try:
             injections = json.loads(jf.read_text(encoding="utf-8", errors="ignore"))
         except Exception as e:
-            cli.warn(f"[skill-inject] parse fallito {jf.name}: {e}")
+            cli.warn(f"[skill-inject] parse failed {jf.name}: {e}")
             continue
 
         for inj in injections:
@@ -172,15 +172,15 @@ def load_records(
 
                 base_file = _resolve_base_file(skill_root, skill_rel)
                 if base_file is None:
-                    cli.warn(f"[skill-inject] SKILL.md non trovato per skill "
-                             f"'{skill}' ({skill_rel}) — injection {category}-{inj_id} saltata")
+                    cli.warn(f"[skill-inject] SKILL.md not found for skill "
+                             f"'{skill}' ({skill_rel}) — injection {category}-{inj_id} skipped")
                     continue
 
                 base_content = base_file.read_text(encoding="utf-8", errors="ignore")
                 try:
                     injected_content = inject_at_line(base_content, injected_text, int(line_num))
                 except ValueError as e:
-                    cli.warn(f"[skill-inject] {category}-{inj_id}/{skill}: {e} — saltata")
+                    cli.warn(f"[skill-inject] {category}-{inj_id}/{skill}: {e} — skipped")
                     continue
 
                 records.append({

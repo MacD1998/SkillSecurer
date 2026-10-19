@@ -183,12 +183,13 @@ it.
 
 ## Threat taxonomy
 
-Nine vulnerability types, each in two flavours (`action`: must carry a concrete executable
-consequence; `content`: a behavioural distortion instead), crossed with three difficulty levels.
-Defined in [`config/catalog.json`](config/catalog.json).
+Ten vulnerability types, each tagged by flavour (`action`: must carry a concrete executable
+consequence; `content`: a behavioural distortion instead; `detector`: targets the LLM-based
+scanner reading the file rather than the downstream task agent), crossed with three difficulty
+levels. Defined in [`config/catalog.json`](config/catalog.json).
 
 <details>
-<summary><b>9 vulnerability types</b></summary>
+<summary><b>10 vulnerability types</b></summary>
 
 | Type | Mode | Description |
 |---|---|---|
@@ -201,6 +202,7 @@ Defined in [`config/catalog.json`](config/catalog.json).
 | `privilege_escalation` | action | Request unnecessary elevated permissions |
 | `indirect_injection` | action | Follow commands sourced from untrusted external content |
 | `guardfall` | action | A dangerous command dressed in non-standard shell syntax so keyword-based filters never see the literal token, while the shell still executes it |
+| `scanner_evasion` | **detector** | Prompt injection aimed at the LLM-based scanner itself (fake reviewer authority, fake system/instruction block, decoy clean verdict, test-fixture framing, context-burying) rather than the task agent — models an adaptive attacker who knows an LLM judge will inspect the skill |
 
 </details>
 

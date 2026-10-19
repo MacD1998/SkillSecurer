@@ -72,7 +72,8 @@ TESTER_SCOPES        = ("all", "blue_gap_only")
 RED_DIFFICULTIES     = ("K1", "K2", "K3")
 RED_VULN_TYPES       = ("arbitrary_script_execution", "data_exfiltration", "supply_chain",
                         "credential_exposure", "prompt_hijacking", "resource_exhaustion",
-                        "privilege_escalation", "indirect_injection", "guardfall")
+                        "privilege_escalation", "indirect_injection", "guardfall",
+                        "scanner_evasion")
 
 
 # ── Ground truth per la fonte local_preinjected ────────────────────────
@@ -348,51 +349,51 @@ def validate_config(cfg: PipelineConfig) -> List[str]:
     errs: List[str] = []
 
     if not (cfg.name or "").strip():
-        errs.append("name: il preset deve avere un nome non vuoto.")
+        errs.append("name: the preset must have a non-empty name.")
 
     s = cfg.source
     if s.type not in SOURCE_TYPES:
-        errs.append(f"source.type: '{s.type}' non valido (atteso uno di {SOURCE_TYPES}).")
+        errs.append(f"source.type: '{s.type}' invalid (expected one of {SOURCE_TYPES}).")
         return errs  # senza una fonte valida il resto non è verificabile
 
     # ── Campi specifici per fonte ──────────────────────────────────────
     if s.type in ("red", "local_preinjected"):
         if not (s.local_folder_path or "").strip():
-            errs.append(f"source.local_folder_path: richiesto per la fonte '{s.type}'.")
+            errs.append(f"source.local_folder_path: required for source '{s.type}'.")
         if not s.selected_files:
-            errs.append(f"source.selected_files: seleziona almeno un file per la fonte '{s.type}'.")
+            errs.append(f"source.selected_files: select at least one file for source '{s.type}'.")
         if s.type == "red" and s.red_difficulties:
             bad = [d for d in s.red_difficulties if str(d).upper() not in RED_DIFFICULTIES]
             if bad:
-                errs.append(f"source.red_difficulties: valori non validi {bad} (ammessi {RED_DIFFICULTIES}).")
+                errs.append(f"source.red_difficulties: invalid values {bad} (allowed {RED_DIFFICULTIES}).")
         if s.type == "red" and s.red_vuln_types:
             bad = [v for v in s.red_vuln_types if str(v).lower() not in RED_VULN_TYPES]
             if bad:
-                errs.append(f"source.red_vuln_types: valori non validi {bad} (ammessi {RED_VULN_TYPES}).")
+                errs.append(f"source.red_vuln_types: invalid values {bad} (allowed {RED_VULN_TYPES}).")
     elif s.type == "skill_inject":
         cats = s.skill_inject_categories or []
         bad = [c for c in cats if c not in SKILL_INJECT_CATEGORIES]
         if bad:
-            errs.append(f"source.skill_inject_categories: valori non validi {bad} "
-                        f"(ammessi {SKILL_INJECT_CATEGORIES}).")
+            errs.append(f"source.skill_inject_categories: invalid values {bad} "
+                        f"(allowed {SKILL_INJECT_CATEGORIES}).")
         # skill_inject_skills è opzionale (None/[] = tutte le skill delle categorie).
     elif s.type == "online":
         urls = [u for u in (s.urls or []) if (u or "").strip()]
         if not urls:
-            errs.append("source.urls: fornisci almeno una URL per la fonte 'online'.")
+            errs.append("source.urls: provide at least one URL for source 'online'.")
         bad = [u for u in urls if not u.strip().lower().startswith(("http://", "https://"))]
         if bad:
-            errs.append(f"source.urls: URL non http(s): {bad}.")
+            errs.append(f"source.urls: not http(s): {bad}.")
 
     # ── Difesa (motori selezionati) ────────────────────────────────────
     bad_engines = [e for e in (cfg.defense.engines or []) if e not in DEFENSE_ENGINES]
     if bad_engines:
-        errs.append(f"defense.engines: motori non validi {bad_engines} "
-                    f"(ammessi {DEFENSE_ENGINES}).")
+        errs.append(f"defense.engines: invalid engines {bad_engines} "
+                    f"(allowed {DEFENSE_ENGINES}).")
     bad_no_llm = [e for e in (cfg.defense.no_llm or []) if e not in NO_LLM_ENGINES]
     if bad_no_llm:
-        errs.append(f"defense.no_llm: motori non validi {bad_no_llm} "
-                    f"(ammessi {NO_LLM_ENGINES} — solo i motori con analisi LLM opzionale).")
+        errs.append(f"defense.no_llm: invalid engines {bad_no_llm} "
+                    f"(allowed {NO_LLM_ENGINES} — only engines with optional LLM analysis).")
 
     # ── Eval (ground truth nota + qualcosa da valutare) ────────────────
     if cfg.eval_enabled:
@@ -401,37 +402,37 @@ def validate_config(cfg: PipelineConfig) -> List[str]:
         elif s.type == "local_preinjected":
             # Sbloccato solo se la cartella porta un JSON di ground truth.
             if not find_ground_truth_json(s.local_folder_path):
-                errs.append("eval: per 'local_preinjected' serve un file JSON di ground "
-                            "truth nella cartella (mappa nome-file → injection); "
-                            "senza, la ground truth non è nota e l'eval è bloccato.")
+                errs.append("eval: 'local_preinjected' needs a ground truth JSON file "
+                            "in the folder (filename → injection map); "
+                            "without it, ground truth is unknown and eval is blocked.")
         else:
-            errs.append("eval: disponibile solo con fonte 'red'/'skill_inject', oppure "
-                        "'local_preinjected' con JSON di ground truth; disabilitalo per "
+            errs.append("eval: only available with source 'red'/'skill_inject', or "
+                        "'local_preinjected' with a ground truth JSON; disable it for "
                         "'online'.")
         if not cfg.defense.has_blue:
-            errs.append("eval: richiede il motore di difesa 'blue' (valuta i suoi finding "
-                        "contro il ground truth; i motori terzi non producono le quote "
-                        "testuali su cui si regge il match).")
+            errs.append("eval: requires the 'blue' defense engine (it scores its findings "
+                        "against the ground truth; third-party engines don't produce the "
+                        "text quotes the match relies on).")
 
     # ── Tester scope ───────────────────────────────────────────────────
     t = cfg.tester
     if t.enabled:
         if t.scope is not None and t.scope not in TESTER_SCOPES:
-            errs.append(f"tester.scope: '{t.scope}' non valido (ammessi {TESTER_SCOPES}).")
+            errs.append(f"tester.scope: '{t.scope}' invalid (allowed {TESTER_SCOPES}).")
         if t.scope == "blue_gap_only" and not cfg.defense.has_blue:
-            errs.append("tester.scope='blue_gap_only': richiede il motore di difesa 'blue' "
-                        "(senza il suo output non esistono 'gap' da cui filtrare).")
+            errs.append("tester.scope='blue_gap_only': requires the 'blue' defense engine "
+                        "(without its output there are no 'gaps' to filter by).")
         # Difesa di soli motori terzi + tester: nessuno di quei motori patcha,
         # quindi non c'è FIXED da testare e il two-way misurerebbe la INJECTED
         # senza dire nulla sulla difesa selezionata. Con difesa VUOTA il two-way
         # resta ammesso (è la misura della sola skill iniettata, come prima).
         if cfg.defense.enabled and not cfg.defense.has_blue:
-            errs.append("tester: con una difesa di soli motori terzi "
-                        f"({', '.join(cfg.defense.engines)}) non esiste una versione FIXED "
-                        "da testare — quei motori rilevano ma non patchano. Aggiungi 'blue' "
-                        "ai motori di difesa, oppure disabilita il tester.")
+            errs.append("tester: with a defense of third-party engines only "
+                        f"({', '.join(cfg.defense.engines)}) there is no FIXED version "
+                        "to test — those engines detect but don't patch. Add 'blue' "
+                        "to the defense engines, or disable the tester.")
     elif t.scope not in (None, "all"):
-        errs.append("tester.scope: impostato ma tester disabilitato.")
+        errs.append("tester.scope: set but tester is disabled.")
 
     return errs
 
@@ -442,5 +443,5 @@ def validate_or_raise(cfg: PipelineConfig) -> PipelineConfig:
     normalize(cfg)
     errs = validate_config(cfg)
     if errs:
-        raise ValueError("Config pipeline custom non valida:\n  - " + "\n  - ".join(errs))
+        raise ValueError("Invalid custom pipeline config:\n  - " + "\n  - ".join(errs))
     return cfg

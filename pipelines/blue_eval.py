@@ -177,7 +177,7 @@ def node_load_skill_inject(state: SSE3State) -> dict:
     output_dir = state["output_dir"]
 
     if not si_path.exists():
-        return {"error": f"skill-inject non trovato: {si_path}"}
+        return {"error": f"skill-inject not found: {si_path}"}
 
     cli.start_run()
     records = load_records(si_path, categories, skills_f,

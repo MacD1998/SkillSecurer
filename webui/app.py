@@ -438,8 +438,8 @@ def api_skill_inject_base():
     /api/list-md → riusa cApplyFiles lato client."""
     d = _SKILLS_DIR
     if not d.is_dir():
-        return jsonify({"error": "skill-inject base skills non trovate "
-                                 f"({d}) — clona il repo skill-inject.",
+        return jsonify({"error": "skill-inject base skills not found "
+                                 f"({d}) — clone the skill-inject repo.",
                         "path": str(d), "files": [], "total": 0})
     files = []
     for f in d.rglob("SKILL.md"):

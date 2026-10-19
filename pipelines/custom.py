@@ -71,13 +71,13 @@ def _source_red(state: SSE3State, cfg: PipelineConfig) -> dict:
     src_by_skill:   dict[str, str] = {}
     for p in files:
         if not p.exists():
-            cli.warn(f"[custom/red] file non trovato: {p}")
+            cli.warn(f"[custom/red] file not found: {p}")
             continue
         name = p.stem if p.stem.lower() != "skill" else p.parent.name
         skill_contents[name] = p.read_text(encoding="utf-8", errors="ignore")
         src_by_skill[name]   = str(p.resolve())
     if not skill_contents:
-        return {"error": "[custom/red] nessun file skill valido selezionato."}
+        return {"error": "[custom/red] no valid skill file selected."}
 
     # Profilo skill-inject (checkbox webui): tassonomia = 8 classi del paper +
     # KB di esempi (le injection direct di skill-inject). Accoppiati: il flag
@@ -89,7 +89,7 @@ def _source_red(state: SSE3State, cfg: PipelineConfig) -> dict:
         from agents.red_kb import build_kb
         red_kb  = build_kb(BASE / "skill-inject")
         if not red_kb:
-            cli.warn("[custom/red] KB skill-inject vuota — proseguo senza esempi.")
+            cli.warn("[custom/red] skill-inject KB empty — continuing without examples.")
     else:
         catalog = load_catalog(BASE / "config" / "catalog.json")
 
@@ -101,7 +101,7 @@ def _source_red(state: SSE3State, cfg: PipelineConfig) -> dict:
         catalog["difficulty_levels"] = [d for d in catalog["difficulty_levels"]
                                         if str(d["id"]).upper() in want]
         if not catalog["difficulty_levels"]:
-            return {"error": "[custom/red] nessuna difficoltà valida selezionata (K1/K2/K3)."}
+            return {"error": "[custom/red] no valid difficulty selected (K1/K2/K3)."}
     # Con la KB attiva la tassonomia è quella del paper (8 classi): il filtro
     # red_vuln_types usa gli id "nostri" e non si applica → ignorato.
     vts = None if use_kb else cfg.source.red_vuln_types
@@ -110,7 +110,7 @@ def _source_red(state: SSE3State, cfg: PipelineConfig) -> dict:
         catalog["vulnerability_types"] = [v for v in catalog["vulnerability_types"]
                                           if str(v["id"]).lower() in want_v]
         if not catalog["vulnerability_types"]:
-            return {"error": "[custom/red] nessuna tipologia di vulnerabilità valida selezionata."}
+            return {"error": "[custom/red] no valid vulnerability type selected."}
 
     cli.start_run()
     cli.header(scope=",".join(sorted(skill_contents)), injections="n/a",
@@ -153,13 +153,13 @@ def _source_skill_inject(state: SSE3State, cfg: PipelineConfig) -> dict:
     output_dir = state["output_dir"]
 
     if not si_path.exists():
-        return {"error": f"[custom/skill_inject] skill-inject non trovato: {si_path}"}
+        return {"error": f"[custom/skill_inject] skill-inject not found: {si_path}"}
 
     cli.start_run()
     records = load_records(si_path, cats, skills_f, types_filter=["direct"],
                            max_files=state.get("max_files"))
     if not records:
-        return {"error": "[custom/skill_inject] nessun record (controlla categorie/skill)."}
+        return {"error": "[custom/skill_inject] no records (check categories/skills)."}
 
     inj_dir = output_dir / "injected"
     for i, r in enumerate(records):
@@ -247,7 +247,7 @@ def _source_online(state: SSE3State, cfg: PipelineConfig) -> dict:
         cli.item(f"{len(injections)}/{len(urls)} {name}")
     cli.phase_done(timed=False)
     if not injections:
-        return {"error": "[custom/online] nessuna skill scaricata."}
+        return {"error": "[custom/online] no skill downloaded."}
     cli.header(scope="online", injections=len(injections),
                attempts=state.get("max_attempts", 5),
                parallel=state.get("parallel", 4), vuln_types=[])
@@ -271,10 +271,10 @@ def _attach_ground_truth(records: list[dict], folder_path: str | None) -> int:
     try:
         data = json.loads(Path(gt_path).read_text(encoding="utf-8"))
     except Exception as e:
-        cli.warn(f"[custom/local] ground truth JSON illeggibile ({gt_path}): {e}")
+        cli.warn(f"[custom/local] ground truth JSON unreadable ({gt_path}): {e}")
         return 0
     if not isinstance(data, dict):
-        cli.warn(f"[custom/local] ground truth JSON non è una mappa nome-file→injection: {gt_path}")
+        cli.warn(f"[custom/local] ground truth JSON is not a filename→injection map: {gt_path}")
         return 0
 
     def _text(v) -> str:
@@ -306,8 +306,8 @@ def _attach_ground_truth(records: list[dict], folder_path: str | None) -> int:
     cli.debug(f"  🎯 ground truth: {matched}/{len(records)} file agganciati da "
               f"{Path(gt_path).name}")
     if matched < len(records):
-        cli.warn(f"[custom/local] {len(records) - matched} file senza ground truth "
-                 "nel JSON: l'eval li tratterà come privi di injection nota.")
+        cli.warn(f"[custom/local] {len(records) - matched} files with no ground truth "
+                 "in the JSON: eval will treat them as having no known injection.")
     return matched
 
 
@@ -469,7 +469,7 @@ def node_custom_report(state: SSE3State, steps: dict) -> dict:
                 "exemplars":       {c: v for c, v in sorted(_kb.items())},
             }
         except Exception as e:
-            cli.warn(f"[custom/report] KB info non allegata: {e}")
+            cli.warn(f"[custom/report] KB info not attached: {e}")
 
     # System prompt del Red (fisso per il run) → mostrato una volta in alto nel report.
     # Ricostruito dal catalog effettivo (paper se KB attiva, altrimenti quello nostro).
@@ -482,7 +482,7 @@ def node_custom_report(state: SSE3State, steps: dict) -> dict:
             data["red_system_prompt"] = resolve(
                 "red", _system_prompt(load_catalog(BASE / "config" / _catname)))
         except Exception as e:
-            cli.warn(f"[custom/report] system prompt non allegato: {e}")
+            cli.warn(f"[custom/report] system prompt not attached: {e}")
 
     (output_dir / "results.json").write_text(
         json.dumps(data, indent=2, default=str, ensure_ascii=False), encoding="utf-8")

@@ -68,7 +68,7 @@ def build_kb(
     try:
         labels = json.loads(labels_path.read_text(encoding="utf-8")).get("labels", {})
     except Exception as e:
-        cli.warn(f"[red-kb] labels non leggibili {labels_path}: {e}")
+        cli.warn(f"[red-kb] labels unreadable {labels_path}: {e}")
         return {}
 
     records = load_records(skill_inject_path, cats, types_filter=["direct"])
@@ -105,8 +105,8 @@ def build_kb(
     n_after = sum(len(v) for v in kb.values())
 
     if unlabeled:
-        cli.warn(f"[red-kb] {len(unlabeled)} injection senza label in {labels_path.name} "
-                 f"(saltate): {sorted(unlabeled)[:8]}...")
+        cli.warn(f"[red-kb] {len(unlabeled)} injections with no label in {labels_path.name} "
+                 f"(skipped): {sorted(unlabeled)[:8]}...")
     # info (non debug) → sempre visibile a log: evidenza che la KB skill-inject è attiva.
     _dd = f" (dedup: {n_before}→{n_after}, -{n_before - n_after})" if n_after < n_before else ""
     cli.info(f"  📚 [red-kb] KB skill-inject attiva: "

@@ -88,7 +88,7 @@ def load_custom_pipeline(name: str) -> PipelineConfig:
     """Carica un preset per nome (o slug). Alza FileNotFoundError se assente."""
     p = _path_for(name)
     if not p.exists():
-        raise FileNotFoundError(f"Preset custom non trovato: {name}")
+        raise FileNotFoundError(f"Custom preset not found: {name}")
     return PipelineConfig.from_dict(json.loads(p.read_text(encoding="utf-8")))
 
 

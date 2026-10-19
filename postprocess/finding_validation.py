@@ -68,7 +68,7 @@ def assign_validators(cases: list[dict], n_validators: int, coverage: int) -> li
     riceve piu' skill).
     """
     if coverage != n_validators - 1:
-        raise ValueError("assign_validators supporta solo coverage == n_validators - 1 (esclusione singola round-robin)")
+        raise ValueError("assign_validators only supports coverage == n_validators - 1 (single round-robin exclusion)")
     buckets = [[] for _ in range(n_validators)]
     for i, c in enumerate(cases):
         excluded = i % n_validators
