@@ -72,8 +72,12 @@ TESTER_SCOPES        = ("all", "blue_gap_only")
 RED_DIFFICULTIES     = ("K1", "K2", "K3")
 RED_VULN_TYPES       = ("arbitrary_script_execution", "data_exfiltration", "supply_chain",
                         "credential_exposure", "prompt_hijacking", "resource_exhaustion",
-                        "privilege_escalation", "indirect_injection", "guardfall",
-                        "scanner_evasion")
+                        "privilege_escalation", "indirect_injection", "guardfall")
+# Tecniche di evasion LLM: lette da config/evasion.json, la stessa fonte del Red.
+RED_EVASION_TECHNIQUES = tuple(
+    t["id"] for t in json.loads(
+        (Path(__file__).resolve().parent.parent / "config" / "evasion.json")
+        .read_text(encoding="utf-8"))["techniques"])
 
 
 # ── Ground truth per la fonte local_preinjected ────────────────────────
@@ -139,6 +143,12 @@ class SourceConfig:
     # paper (config/catalog_paper.json) e le injection direct di skill-inject come
     # KB di esempi (mai copiati). Flag unico, accoppiato: catalog paper + KB insieme.
     use_skill_inject_kb: bool = False
+    # red: aggiunge a OGNI file iniettato una seconda injection (LLM evasion) rivolta
+    # allo scanner LLM, oltre a quella di vuln_type. La ground truth resta il solo
+    # payload di vuln_type. red_evasion_techniques: subset di RED_EVASION_TECHNIQUES
+    # (None/[] = tutte, assegnate round-robin).
+    red_evasion: bool = False
+    red_evasion_techniques: Optional[List[str]] = None
     # skill_inject: categorie {obvious, contextual} + filtro per skill-file
     # (es. docx, pptx, calendar; None/[] = tutte le skill delle categorie scelte).
     skill_inject_categories: Optional[List[str]] = None
@@ -290,6 +300,8 @@ class PipelineConfig:
                 red_difficulties=        src.get("red_difficulties"),
                 red_vuln_types=          src.get("red_vuln_types"),
                 use_skill_inject_kb=     bool(src.get("use_skill_inject_kb", False)),
+                red_evasion=             bool(src.get("red_evasion", False)),
+                red_evasion_techniques=  src.get("red_evasion_techniques"),
                 skill_inject_categories= src.get("skill_inject_categories"),
                 skill_inject_skills=     src.get("skill_inject_skills"),
                 skill_inject_path=       src.get("skill_inject_path"),
@@ -356,6 +368,10 @@ def validate_config(cfg: PipelineConfig) -> List[str]:
         errs.append(f"source.type: '{s.type}' invalid (expected one of {SOURCE_TYPES}).")
         return errs  # senza una fonte valida il resto non è verificabile
 
+    if s.red_evasion and s.type != "red":
+        errs.append("source.red_evasion: only available with source 'red' "
+                    "(the Red is what adds the evasion injection).")
+
     # ── Campi specifici per fonte ──────────────────────────────────────
     if s.type in ("red", "local_preinjected"):
         if not (s.local_folder_path or "").strip():
@@ -370,6 +386,11 @@ def validate_config(cfg: PipelineConfig) -> List[str]:
             bad = [v for v in s.red_vuln_types if str(v).lower() not in RED_VULN_TYPES]
             if bad:
                 errs.append(f"source.red_vuln_types: invalid values {bad} (allowed {RED_VULN_TYPES}).")
+        if s.type == "red" and s.red_evasion_techniques:
+            bad = [t for t in s.red_evasion_techniques if str(t).lower() not in RED_EVASION_TECHNIQUES]
+            if bad:
+                errs.append(f"source.red_evasion_techniques: invalid values {bad} "
+                            f"(allowed {RED_EVASION_TECHNIQUES}).")
     elif s.type == "skill_inject":
         cats = s.skill_inject_categories or []
         bad = [c for c in cats if c not in SKILL_INJECT_CATEGORIES]

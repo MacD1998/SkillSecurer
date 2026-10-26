@@ -106,6 +106,14 @@ def _render_injection_block_md(r: dict) -> list[str]:
         L.append("```")
         L.append(snip)
         L.append("```\n")
+    ev_text = r.get("evasion_text", "")
+    if ev_text:
+        snip = ev_text[:120].replace("\n", " ")
+        if len(ev_text) > 120: snip += "…"
+        L.append(f"**Evasion** ({r.get('evasion_technique') or '?'}, truncated to 120 chars):")
+        L.append("```")
+        L.append(snip)
+        L.append("```\n")
 
     # ── Blue findings ─────────────────────────────────────────────────
     findings = r.get("findings", []) or []
@@ -1273,6 +1281,14 @@ def _write_pdf(data: dict, path: Path) -> None:
             block.append(Paragraph("Injection (truncated to 120 chars):", S["lbl"]))
             snip = safe(inj_text[:120]) + ("…" if len(inj_text) > 120 else "")
             block.append(Paragraph(snip, S["mono"]))
+        ev_text = r.get("evasion_text", "")
+        if ev_text:
+            block.append(Spacer(1, 0.1*cm))
+            block.append(Paragraph(
+                f"Evasion ({safe(str(r.get('evasion_technique') or '?'))}, truncated to 120 chars):",
+                S["lbl"]))
+            block.append(Paragraph(
+                safe(ev_text[:120]) + ("…" if len(ev_text) > 120 else ""), S["mono"]))
 
         # Findings
         findings = r.get("findings", []) or []
@@ -1508,6 +1524,8 @@ def _used_agents(data: dict) -> list[str]:
 
     if data.get("red_system_prompt") or any_key("red_user_prompt", "strategy_type", "injection_text"):
         used.append("red")
+    if any_key("evasion_text"):
+        used.append("red_evasion")
     if any(("detected" in r or "findings" in r or r.get("scan_failed")) for r in rows):
         used += ["blue_scan", "blue_patch"]
     if data.get("blue_eval"):
@@ -1545,6 +1563,7 @@ def _write_html(data: dict, path: Path) -> None:
             from agents.prompt_registry import active_prompts
             data["system_prompts"] = active_prompts(
                 red_prompt=data.get("red_system_prompt"),
+                red_evasion_prompt=data.get("red_evasion_system_prompt"),
                 names=_used_agents(data))
         except Exception:
             data["system_prompts"] = []

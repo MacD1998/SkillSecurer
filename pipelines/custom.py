@@ -122,7 +122,9 @@ def _source_red(state: SSE3State, cfg: PipelineConfig) -> dict:
     # (max_files_global=True): niente over-generazione (il Red genera al più `mf` file),
     # niente ceil/×2, e le classi restano complete sulle prime skill.
     sub = {**state, "skill_contents": skill_contents, "catalog": catalog,
-           "red_kb": red_kb, "max_files_global": True}
+           "red_kb": red_kb, "max_files_global": True,
+           "red_evasion":            bool(cfg.source.red_evasion),
+           "red_evasion_techniques": cfg.source.red_evasion_techniques}
 
     out = node_red(sub)
     if out.get("error"):
@@ -483,6 +485,17 @@ def node_custom_report(state: SSE3State, steps: dict) -> dict:
                 "red", _system_prompt(load_catalog(BASE / "config" / _catname)))
         except Exception as e:
             cli.warn(f"[custom/report] system prompt not attached: {e}")
+
+    # Prompt del Red-evasion (dipende dalle tecniche scelte → ricostruito dal run).
+    if any(r.get("evasion_text") for r in injections):
+        try:
+            from agents.red_agent import load_evasion, _evasion_system_prompt
+            from agents.prompt_registry import resolve
+            data["red_evasion_system_prompt"] = resolve(
+                "red_evasion",
+                _evasion_system_prompt(load_evasion(_src.get("red_evasion_techniques"))))
+        except Exception as e:
+            cli.warn(f"[custom/report] evasion system prompt not attached: {e}")
 
     (output_dir / "results.json").write_text(
         json.dumps(data, indent=2, default=str, ensure_ascii=False), encoding="utf-8")

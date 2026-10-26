@@ -35,6 +35,7 @@ _STATIC: list[tuple[str, str, str, str]] = [
 ]
 
 _RED_LABEL = "Red (injection generator)"
+_RED_EVASION_LABEL = "Red · LLM evasion"
 
 
 # ── Override lato agente ───────────────────────────────────────────────
@@ -69,9 +70,15 @@ def _red_default(catalog: dict | None = None) -> str:
     return _system_prompt(catalog)
 
 
+def _red_evasion_default() -> str:
+    from agents.red_agent import _evasion_system_prompt, load_evasion
+    return _evasion_system_prompt(load_evasion())
+
+
 def default_prompts(catalog: dict | None = None) -> list[dict]:
     """Lista ordinata {name, label, text} dei prompt DI DEFAULT (per prefill UI)."""
-    out = [{"name": "red", "label": _RED_LABEL, "text": _red_default(catalog)}]
+    out = [{"name": "red", "label": _RED_LABEL, "text": _red_default(catalog)},
+           {"name": "red_evasion", "label": _RED_EVASION_LABEL, "text": _red_evasion_default()}]
     for name, label, module, attr in _STATIC:
         try:
             out.append({"name": name, "label": label, "text": _static_default(module, attr)})
@@ -81,12 +88,15 @@ def default_prompts(catalog: dict | None = None) -> list[dict]:
 
 
 def active_prompts(red_prompt: str | None = None, catalog: dict | None = None,
-                   names: list[str] | None = None) -> list[dict]:
+                   names: list[str] | None = None,
+                   red_evasion_prompt: str | None = None) -> list[dict]:
     """Lista ordinata {name, label, text} dei prompt EFFETTIVI (override applicati).
 
     red_prompt: se il chiamante ha già il system prompt del Red calcolato col
     catalog reale del run (es. data['red_system_prompt']), passarlo qui evita di
     ricalcolarlo; è già post-override lato agente. Altrimenti si ricava dal catalog.
+    red_evasion_prompt: come red_prompt, per il Red-evasion (il suo prompt dipende dalle
+    tecniche selezionate, quindi il report lo allega già calcolato).
     names: se dato, filtra ai soli agenti indicati (ordine canonico preservato) —
     così il report mostra SOLO gli agenti effettivamente usati nel run.
     """
@@ -95,6 +105,10 @@ def active_prompts(red_prompt: str | None = None, catalog: dict | None = None,
     if keep is None or "red" in keep:
         red = red_prompt if red_prompt else resolve("red", _red_default(catalog))
         out.append({"name": "red", "label": _RED_LABEL, "text": red})
+    if keep is not None and "red_evasion" in keep:
+        out.append({"name": "red_evasion", "label": _RED_EVASION_LABEL,
+                    "text": red_evasion_prompt
+                    or resolve("red_evasion", _red_evasion_default())})
     for name, label, module, attr in _STATIC:
         if keep is not None and name not in keep:
             continue

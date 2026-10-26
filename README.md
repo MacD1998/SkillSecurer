@@ -103,6 +103,7 @@ flowchart TD
 - **`blue-eval`:** `load_skill_inject → blue_eval → [third-party scans] → report` (scan + score against ground truth in one node; no RedInjector, no Tester, no Docker)
 - **`blue-eval-testing`:** blue-eval **+** `tester_judge` restricted to the injections BluePatcher did not catch
 - **`custom`:** a conditional orchestration over the same nodes, configured per run
+- **`evasion-copy`:** `source run → red (evasion only) → report` (copy a Red-only run, adding an LLM-evasion injection to every injected file; no Blue, no Tester, no Docker)
 
 ### The three-way design
 
@@ -183,13 +184,13 @@ it.
 
 ## Threat taxonomy
 
-Ten vulnerability types, each tagged by flavour (`action`: must carry a concrete executable
-consequence; `content`: a behavioural distortion instead; `detector`: targets the LLM-based
-scanner reading the file rather than the downstream task agent), crossed with three difficulty
-levels. Defined in [`config/catalog.json`](config/catalog.json).
+Nine vulnerability types, each tagged by flavour (`action`: must carry a concrete executable
+consequence; `content`: a behavioural distortion instead), crossed with three difficulty
+levels. Defined in [`config/catalog.json`](config/catalog.json). An optional **LLM evasion**
+layer can be added on top — see [LLM evasion](#llm-evasion-optional-second-injection).
 
 <details>
-<summary><b>10 vulnerability types</b></summary>
+<summary><b>9 vulnerability types</b></summary>
 
 | Type | Mode | Description |
 |---|---|---|
@@ -202,7 +203,6 @@ levels. Defined in [`config/catalog.json`](config/catalog.json).
 | `privilege_escalation` | action | Request unnecessary elevated permissions |
 | `indirect_injection` | action | Follow commands sourced from untrusted external content |
 | `guardfall` | action | A dangerous command dressed in non-standard shell syntax so keyword-based filters never see the literal token, while the shell still executes it |
-| `scanner_evasion` | **detector** | Prompt injection aimed at the LLM-based scanner itself (fake reviewer authority, fake system/instruction block, decoy clean verdict, test-fixture framing, context-burying) rather than the task agent — models an adaptive attacker who knows an LLM judge will inspect the skill |
 
 </details>
 
@@ -223,6 +223,32 @@ across a 540-injection characterisation set, the share of injections containing 
 execution keyword falls from K1 to K3, while literal shell commands and policy-style framing
 become more common at K2 and drop again at K3, where the instruction is meant to read as ordinary
 prose rather than as code.
+
+### LLM evasion (optional second injection)
+
+An LLM-based scanner reads the same `SKILL.md` the task agent does, so an attacker who knows that
+can also address the *scanner*. With evasion on, the Red writes **a second injection per file**,
+placed around the vuln-type payload and aimed at the reviewer, not at the agent: a fake
+authority claim, a fake system/instruction block, test-fixture framing, a decoy clean verdict, a
+benign-looking disclaimer, or context-burying filler (techniques in
+[`config/evasion.json`](config/evasion.json), assigned round-robin so each is evenly represented
+and recorded per file as `evasion_technique`).
+
+- The payload is never rewritten — the evasion only surrounds it, and is never placed inside the
+  YAML frontmatter.
+- **Ground truth stays the vuln-type payload only** (`injection` in `ground_truth.json`); the
+  evasion text is stored separately (`evasion`, `evasion_technique`), so the eval does not mistake
+  it for the attack.
+- A file whose evasion could not be generated is dropped (warned), never kept without it, so an
+  evasion run is homogeneous.
+
+Two ways to use it:
+
+1. **At generation time** — the *Add LLM evasion* checkbox on the Red source (Web UI), the
+   `red_evasion` / `red_evasion_techniques` fields of a custom config, or `--evasion
+   [--evasion-techniques …]` on `full` / `red-only`.
+2. **On an existing run** — the [`evasion-copy`](#evasion-copy-pipeline-same-dataset-plus-evasion)
+   pipeline (Web UI: **Evasion** tab), which leaves the original run untouched.
 
 ### Paper profile: harm-category taxonomy
 
@@ -294,7 +320,7 @@ Plain-English outcomes for the raw `TP`/`FN`/`FP` codes that Verifier assigns (k
 
 ## The pipelines
 
-Four fixed pipelines, plus a configurable **`custom`** mode that composes the same steps at
+Six fixed pipelines, plus a configurable **`custom`** mode that composes the same steps at
 runtime.
 
 | Pipeline | Input | Runs | Docker? | Answers |
@@ -304,6 +330,7 @@ runtime.
 | **`blue-only`** | your own `.md` files / folders | BluePatcher scan (+patch), optional third-party engines | ❌ | Are these skills already vulnerable? |
 | **`blue-eval`** | the [skill-inject](https://github.com/aisa-group/skill-inject) labelled dataset | BluePatcher scan → Verifier vs. ground truth | ❌ | How accurate is BluePatcher's detector? |
 | **`blue-eval-testing`** | skill-inject labelled dataset | blue-eval **+** Tester three-way, restricted to BluePatcher's misses (verdict ≠ Caught) | ✅ | Of the injections BluePatcher missed, how many actually fire? |
+| **`evasion-copy`** | a previous Red-only run | RedInjector adds an LLM-evasion injection to each injected file of a copy of that run | ❌ | Does an evasion text aimed at the scanner change how a defense performs on the *same* dataset? |
 | **`custom`** | any source below, chosen at runtime | conditional source → defense → eval → tester | ⚙️ | Whatever combination you configure |
 
 ### Custom pipeline: compose the four steps at runtime
@@ -793,6 +820,26 @@ python3 main.py --pipeline red-only \
 No Docker, no defense engine, no Tester — just RedInjector's output and a report describing it.
 Detection/ASR sections show `—` (Blue never ran), not a misleading `0%`.
 
+Add `--evasion` (optionally `--evasion-techniques fake_authority decoy_clean_verdict …`) to have
+the Red add an [LLM-evasion](#llm-evasion-optional-second-injection) injection to every file.
+
+### Evasion-copy pipeline (same dataset, plus evasion)
+
+```bash
+python3 main.py --pipeline evasion-copy \
+  --source-run results/injections_only \
+  --output results/injections_only_evasion
+```
+
+`--source-run` is a path, or a run name under `results/`. It must be a run where **only the Red**
+ran (a defense, eval or tester on it would leave findings/ASR computed on the *original* files).
+The copy has the same base files (`base_skill_path`), the same vuln-type payloads and the same
+config, and the same relative paths under `injected/`; each injected file additionally carries
+the evasion injection. It is a normal Red run layout (`injected/ground_truth.json`,
+`results.json`, report), so scan it like any pre-injected dataset (`custom` → `local_preinjected`)
+and compare with the original run in post-processing. Only Red LLM calls are made; the output
+folder must be new — the source is never modified.
+
 ### Blue-only pipeline (audit existing skills)
 
 ```bash
@@ -841,7 +888,7 @@ python3 main.py --pipeline custom --preset my_preset          --output results/c
 
 | Flag | Pipeline(s) | Default | Description |
 |---|---|---|---|
-| `--pipeline` | all | `full` | `full`, `red-only`, `blue-only`, `blue-eval`, `blue-eval-testing`, `custom` |
+| `--pipeline` | all | `full` | `full`, `red-only`, `blue-only`, `blue-eval`, `blue-eval-testing`, `custom`, `evasion-copy` |
 | `--output` | all | required | Output folder |
 | `--notes` | all | – | Free-text note saved into the report |
 | `--input-price` / `--output-price` | all | – | USD per 1M tokens → enables a cost estimate when the provider doesn't report real usage |
@@ -851,6 +898,9 @@ python3 main.py --pipeline custom --preset my_preset          --output results/c
 | `--skills` | full / red-only | required | Base skill names to test |
 | `--difficulties` | full / red-only | all | Subset of `K1 K2 K3` |
 | `--vuln-types` | full / red-only | all | Subset of the 9 threat types |
+| `--evasion` | full / red-only | off | Add an LLM-evasion injection to every generated file |
+| `--evasion-techniques` | full / red-only / evasion-copy | all | Subset of the techniques in `config/evasion.json` |
+| `--source-run` | evasion-copy | required | Red-only run to copy (path, or name under `results/`) |
 | `--skills-dir` | full / red-only | `skill-inject/data/skills` | Base skills directory |
 | `--max-attempts` | full / *-testing / custom | `5` | Legitimate prompts replayed per injection per version |
 | `--max-files` | all | – | Cap the number of injections/skills processed (distinct, where applicable) |
@@ -874,7 +924,15 @@ modules, so the two stay independent.
 python3 webui/app.py      # opens http://localhost:5050
 ```
 
-Two tabs: **Run**, **History**.
+Tabs: **Run**, **Evasion**, **History**, **Post-processing**.
+
+**Evasion tab** — builds the LLM-evasion copy of a previous Red-only run
+([`evasion-copy`](#evasion-copy-pipeline-same-dataset-plus-evasion)). Pick a source run from the
+list (runs where a defense or tester ran, or that already carry evasion, are shown disabled with
+the reason), choose the output folder, parallelism and which evasion techniques to use, and
+launch. Progress, cost and the report use the same live panel as the Run tab (one run at a time);
+the model is the one selected under Run settings. Afterwards, scan the original run and the copy
+with the same defense and compare them in **Post-processing**.
 
 **Run tab**
 - **Run settings** — output folder, parallelism, max files, and a searchable model picker with
@@ -884,6 +942,8 @@ Two tabs: **Run**, **History**.
 - **Defense engine checkboxes** — pick one or more of the seven engines listed above; `skills_sh`
   stays locked unless the chosen folder is the skills.sh dataset, and Snyk is locked while
   `skills_sh` is on, since it already includes its own Snyk engine.
+- **Add LLM evasion** — on a `red` source, a checkbox (with an optional technique subset) that
+  makes the Red write the second, scanner-directed injection into every file.
 - **Custom pipeline wizard** — a four-step builder (source → defense → eval → tester) with live
   option-gating that mirrors the backend's validity rules, so an invalid combination (e.g. eval
   without ground truth, or tester on a third-party-only defense) is disabled with an explanation
@@ -1017,7 +1077,7 @@ flowchart LR
 
 ```
 skillsecurer/
-├── main.py                    # CLI entry point (5 pipelines)
+├── main.py                    # CLI entry point (7 pipelines)
 ├── core/
 │   ├── cli_output.py           # terminal output (phases, progress bar, phase timing)
 │   ├── llm_factory.py           # multi-provider LLM client factory (+ OpenRouter routing)
@@ -1025,6 +1085,7 @@ skillsecurer/
 ├── config/
 │   ├── catalog.json               # 9 threat types × 3 difficulties (default RedInjector profile)
 │   ├── catalog_paper.json          # 8 paper harm classes (RedInjector paper profile)
+│   ├── evasion.json                 # LLM-evasion techniques (optional second injection)
 │   └── skill_inject_kb_labels.json  # injection_id → harm class labels, for RedInjector KB
 ├── agents/
 │   ├── red_agent.py                # RedInjector — injection generation
@@ -1057,6 +1118,7 @@ skillsecurer/
 │   ├── blue_only.py                  # blue-only graph
 │   ├── blue_eval.py                  # blue-eval graph (detection accuracy)
 │   ├── blue_eval_testing.py           # blue-eval + Tester on BluePatcher's misses
+│   ├── evasion_copy.py                  # evasion-copy: Red-only run → copy with LLM evasion
 │   ├── custom.py                       # custom orchestrator
 │   ├── custom_config.py                 # PipelineConfig dataclasses + validity matrix
 │   ├── custom_store.py                   # preset CRUD (JSON, one file per preset)

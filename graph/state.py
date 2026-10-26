@@ -30,6 +30,14 @@ class InjectionRecord(TypedDict, total=False):
     line_num:       int
     inj_text:       str
     reasoning:      str
+    # Seconda injection opzionale (LLM evasion, rivolta allo scanner LLM). inj_text/
+    # line_num restano il solo payload di vuln_type (ground truth); l'evasion è a parte.
+    evasion_text:        Optional[str]
+    evasion_technique:   Optional[str]
+    evasion_line_num:    Optional[int]
+    evasion_reasoning:   Optional[str]
+    evasion_user_prompt: Optional[str]
+    evasion_source_run:  Optional[str]   # run di origine, se il file deriva da evasion-copy
     inj_path:       str        # path assoluto al SKILL.md iniettato
     base_skill_path: str       # path alla BASE pulita (blue-eval-testing: SKILL.md sorgente)
     popularity_rank: Optional[int]  # posizione nell'ordine di popolarità skills_sh_dataset
@@ -147,6 +155,10 @@ class SSE3State(TypedDict, total=False):
     docker_image:      str
     difficulties:      Optional[list[str]]   # es. ["K3"] — None = tutte
     vuln_types:        Optional[list[str]]   # es. ["data_exfiltration"] — None = tutte
+    # Red: se True ogni file iniettato riceve anche un'injection di LLM evasion
+    # (config/evasion.json), con le tecniche in red_evasion_techniques (None = tutte).
+    red_evasion:            Optional[bool]
+    red_evasion_techniques: Optional[list[str]]
     notes:             Optional[str]         # nota libera sul test (mostrata nel report)
     input_price:       Optional[float]       # costo per 1M token input (None = no stima)
     output_price:      Optional[float]       # costo per 1M token output (None = no stima)

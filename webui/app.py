@@ -220,7 +220,7 @@ def _reader(run: Run, master_fd: int, proc: subprocess.Popen) -> None:
 
 # ── Build the main.py command line ─────────────────────────────────────
 def build_argv(p: dict) -> list[str]:
-    """La webui lancia SEMPRE la pipeline custom (main.py --pipeline custom
+    """Dal tab Run la webui lancia SEMPRE la pipeline custom (main.py --pipeline custom
     --config <tmp.json>) — le 4 pipeline "predefinite" sono solo template che
     pre-valorizzano lo stesso wizard lato client (webui/index.html), uniformi
     coi preset salvati/nuovi. Le pipeline dedicate (full/blue-only/blue-eval/
@@ -228,7 +228,9 @@ def build_argv(p: dict) -> list[str]:
     semplicemente non più raggiunte da qui."""
     py = sys.executable or "python3"
     out = (p.get("output") or "results/webui_run").strip()
-    argv = [py, "main.py", "--pipeline", "custom", "--output", out]
+    evasion_mode = p.get("mode") == "evasion"
+    argv = [py, "main.py", "--pipeline", "evasion-copy" if evasion_mode else "custom",
+            "--output", out]
 
     notes = (p.get("notes") or "").strip()
     if notes:
@@ -248,6 +250,23 @@ def build_argv(p: dict) -> list[str]:
     # serializziamo in un JSON co-locato con l'output e passiamo --config: le
     # run non salvate NON inquinano la dir dei preset (quelli salvati girano
     # via --preset).
+    if evasion_mode:
+        # Tab "Evasion": copia di una run Red-only con in più l'injection di LLM
+        # evasion (pipeline evasion-copy). Nessuna config custom: la config della
+        # copia è derivata da quella della run sorgente.
+        src = (p.get("source_run") or "").strip()
+        if not src:
+            raise ValueError("source_run is required for an evasion run")
+        argv += ["--source-run", src]
+        argv += ["--parallel", str(int(p.get("parallel") or 20))]
+        mf = p.get("max_files")
+        if mf not in (None, "", 0, "0"):
+            argv += ["--max-files", str(int(mf))]
+        techs = [t for t in (p.get("evasion_techniques") or []) if isinstance(t, str) and t.strip()]
+        if techs:
+            argv += ["--evasion-techniques", *techs]
+        return argv
+
     cfg = p.get("custom_config") or {}
     cfg_dir = BASE / out
     cfg_dir.mkdir(parents=True, exist_ok=True)
@@ -826,6 +845,51 @@ def api_history():
     out = _scan_run_dirs(_RESULTS_DIR) + _scan_run_dirs(_RESULTS_DIR / "examples")
     out.sort(key=lambda e: e.get("timestamp") or "", reverse=True)
     return jsonify(out)
+
+
+# ── Evasion: run Red-only da cui creare la copia con LLM evasion ───────
+# Container scansionati: results/ (run vere), results/examples/ (curate a mano) e
+# dataset/ (dataset Red pubblicati, es. dataset_red_on_*): sono tutte cartelle con
+# un results.json + injected/ — l'unico requisito della pipeline evasion-copy.
+_EVASION_CONTAINERS = (_RESULTS_DIR, _RESULTS_DIR / "examples", BASE / "dataset")
+
+
+@app.route("/api/evasion/runs")
+def api_evasion_runs():
+    """Run candidate come sorgente della copia. Tutte quelle con results.json, con
+    `eligible`/`reason`: una run non idonea (difesa/tester girati, evasion già
+    presente...) viene mostrata disabilitata con il motivo, invece di sparire."""
+    from pipelines.evasion_copy import inspect_run
+    out = []
+    for container in _EVASION_CONTAINERS:
+        if not container.is_dir():
+            continue
+        for sub in container.iterdir():
+            jf = sub / "results.json"
+            if not (sub.is_dir() and jf.is_file()):
+                continue
+            info = inspect_run(sub)
+            try:
+                ts = dt.datetime.fromtimestamp(jf.stat().st_mtime, dt.timezone.utc).isoformat()
+            except Exception:
+                ts = None
+            out.append({"run_id": sub.name, "path": sub.relative_to(BASE).as_posix(),
+                        "timestamp": ts, "eligible": info["ok"], "reason": info["reason"],
+                        "n": info["n"], "skills": info["skills"],
+                        "vuln_types": info["vuln_types"], "difficulties": info["difficulties"],
+                        "missing": info["missing"]})
+    out.sort(key=lambda e: (not e["eligible"], -(dt.datetime.fromisoformat(e["timestamp"]).timestamp()
+                                                 if e["timestamp"] else 0)))
+    return jsonify(out)
+
+
+@app.route("/api/evasion/techniques")
+def api_evasion_techniques():
+    try:
+        ev = json.loads((BASE / "config" / "evasion.json").read_text(encoding="utf-8"))
+        return jsonify([{"id": t["id"], "description": t["description"]} for t in ev["techniques"]])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # ── Post-processing: confronto fra run sullo stesso dataset ────────────

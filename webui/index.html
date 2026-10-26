@@ -31,6 +31,7 @@
 <nav class="max-w-[1400px] mx-auto px-4 pt-4">
   <div class="inline-flex bg-white rounded-lg shadow p-1 gap-1">
     <button id="tabRun" type="button" class="px-4 py-1.5 rounded-md text-sm font-medium">Run</button>
+    <button id="tabEvasion" type="button" class="px-4 py-1.5 rounded-md text-sm font-medium">Evasion</button>
     <button id="tabHistory" type="button" class="px-4 py-1.5 rounded-md text-sm font-medium">History</button>
     <button id="tabCompare" type="button" class="px-4 py-1.5 rounded-md text-sm font-medium">Post-processing</button>
   </div>
@@ -197,6 +198,26 @@
             <span><span class="font-medium">Use skill-inject's injections as KB</span>
               <span class="block text-xs text-slate-500">Paper's 8-class taxonomy + real examples as inspiration (not copied). Replaces the selected vuln types.</span></span>
           </label>
+        </div>
+
+        <!-- 1a-quinquies — Red: LLM evasion (seconda injection per file, rivolta allo scanner) -->
+        <div id="cRedEvasion" class="hidden">
+          <label class="flex items-start gap-2 text-sm cursor-pointer border rounded-md px-2 py-2 has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50"
+                 title="Every injected file gets TWO injections: the vuln-type payload and an LLM-evasion text aimed at the LLM scanner that will review the file. Ground truth stays the payload only.">
+            <input type="checkbox" id="cRedEvasionChk" class="mt-0.5 shrink-0">
+            <span><span class="font-medium">Add LLM evasion</span>
+              <span class="block text-xs text-slate-500">A second injection per file, aimed at the LLM scanner (fake reviewer authority, decoy verdict, …). Ground truth stays the vuln-type payload.</span></span>
+          </label>
+          <div id="cRedEvasionTech" class="hidden mt-2">
+            <div class="flex items-center justify-between mb-1 text-xs">
+              <span class="font-medium text-slate-600">Evasion techniques <span class="text-slate-400 font-normal">(round-robin)</span></span>
+              <span class="flex gap-2">
+                <button type="button" id="cRedEvAll" class="text-blue-600 hover:underline">all</button>
+                <button type="button" id="cRedEvNone" class="text-blue-600 hover:underline">none</button>
+              </span>
+            </div>
+            <div id="cRedEvasionTechBox" class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 border rounded-md p-2 text-xs"></div>
+          </div>
         </div>
 
         <!-- 1b — skill_inject categories + skill-file filter -->
@@ -371,31 +392,79 @@
     </form>
   </section>
 
-  <!-- Model per agent (advanced): modale aperto dal bottone "per-agent models"
-       accanto al model picker principale. Solo i ruoli rilevanti per la
-       pipeline selezionata compaiono (stesso gating del pannello system-prompt).
-       Vuoto = eredita il modello principale (mostrato in alto, sola lettura). -->
-  <div id="agentModelsModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
-      <div class="flex items-center justify-between px-4 py-3 border-b">
-        <h3 class="font-semibold text-slate-700">Model per agent</h3>
-        <button type="button" id="agentModelsClose" class="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
-      </div>
-      <div class="px-4 py-3 space-y-3">
-        <div class="border rounded-md px-3 py-2 bg-slate-50">
-          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Main model (default for every agent)</div>
-          <div id="agentModelsMainInfo" class="text-sm text-slate-700 mt-0.5 log-line">—</div>
+</main>
+
+<!-- ── EVASION VIEW ──────────────────────────────────────────────── -->
+<!-- Copia di una run Red-only con in più, in ogni file iniettato, l'injection di LLM
+     evasion (pipeline evasion-copy). Il pannello live qui sotto (#liveWrap) è lo stesso
+     del tab Run: un solo run alla volta. -->
+<section id="evasionView" class="hidden max-w-[1400px] mx-auto p-4">
+  <div class="bg-white rounded-xl shadow p-5 text-sm">
+    <h2 class="font-semibold text-slate-700">LLM-evasion copy of a Red run</h2>
+    <p class="text-xs text-slate-500 mt-1 mb-4 max-w-3xl">
+      Pick a previous run where <b>only the Red</b> ran. A copy is created with the same base files, the same
+      vuln-type injections and the same config — but every injected file also carries a second injection, written
+      by the Red, aimed at the LLM scanner that will review it. Scan both datasets with the same defense and
+      compare: the only difference is the evasion text.</p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4 items-start">
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="font-medium">Source run <span id="evRunCount" class="text-slate-400 font-normal"></span></label>
+          <button type="button" id="evRefresh" class="text-xs text-blue-600 hover:underline">refresh</button>
         </div>
-        <p class="text-xs text-slate-500">Override individual agents below — blank means it inherits the main model.</p>
-        <div id="agentModelsBox" class="space-y-2 text-xs text-slate-500">No agent for this selection.</div>
+        <div id="evRuns" class="border rounded-md max-h-72 overflow-y-auto divide-y text-xs">
+          <div class="p-3 text-slate-400">loading…</div>
+        </div>
       </div>
-      <div class="px-4 py-3 border-t text-right">
-        <button type="button" id="agentModelsDone" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md">Done</button>
+
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-3">
+          <div class="sm:col-span-3">
+            <label class="block font-medium mb-1">Output folder</label>
+            <input id="evOutput" type="text" class="w-full border rounded-md px-2 py-1.5 log-line text-xs">
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Parallel</label>
+            <input id="evParallel" type="number" min="1" value="20" class="w-full border rounded-md px-2 py-1.5">
+          </div>
+          <div>
+            <label class="block font-medium mb-1">Max files <span class="text-slate-400 font-normal">(optional)</span></label>
+            <input id="evMaxFiles" type="number" min="1" placeholder="no limit" class="w-full border rounded-md px-2 py-1.5">
+          </div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="font-medium">Evasion techniques <span class="text-slate-400 font-normal">(round-robin over the files)</span></label>
+            <div class="flex gap-2 text-xs">
+              <button type="button" id="evTechAll" class="text-blue-600 hover:underline">all</button>
+              <button type="button" id="evTechNone" class="text-blue-600 hover:underline">none</button>
+            </div>
+          </div>
+          <div id="evTechBox" class="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1 border rounded-md p-2 text-xs"></div>
+        </div>
+
+        <!-- Il model picker del tab Run viene spostato qui (setTab): un solo picker, un solo stato. -->
+        <div id="evModelSlot"></div>
+
+        <div class="flex gap-2">
+          <button id="evRunBtn" type="button"
+            class="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-medium rounded-md py-2 transition">
+            ▶ Create evasion copy
+          </button>
+          <button id="evStopBtn" type="button" disabled
+            class="px-3 bg-rose-50 text-rose-600 border border-rose-200 rounded-md disabled:opacity-40">Stop</button>
+        </div>
+        <p id="evMsg" class="text-xs text-rose-600"></p>
+        <p id="evArgv" class="text-[11px] text-slate-400 log-line break-all"></p>
       </div>
     </div>
   </div>
+</section>
 
-  <!-- ── LIVE OUTPUT ─────────────────────────────────────────────── -->
+<!-- ── LIVE OUTPUT (shared by Run and Evasion tabs) ──────────────── -->
+<div id="liveWrap" class="max-w-[1400px] mx-auto px-4 pb-4">
   <section class="space-y-4">
 
     <div id="headerBox" class="hidden bg-white rounded-xl shadow p-4">
@@ -471,7 +540,32 @@
     </details>
 
   </section>
-</main>
+</div>
+
+<!-- Model per agent (advanced): modale aperto dal bottone "per-agent models"
+     accanto al model picker principale. Solo i ruoli rilevanti per la
+     pipeline selezionata compaiono (stesso gating del pannello system-prompt).
+     Vuoto = eredita il modello principale (mostrato in alto, sola lettura). -->
+<div id="agentModelsModal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-4 py-3 border-b">
+      <h3 class="font-semibold text-slate-700">Model per agent</h3>
+      <button type="button" id="agentModelsClose" class="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+    </div>
+    <div class="px-4 py-3 space-y-3">
+      <div class="border rounded-md px-3 py-2 bg-slate-50">
+        <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Main model (default for every agent)</div>
+        <div id="agentModelsMainInfo" class="text-sm text-slate-700 mt-0.5 log-line">—</div>
+      </div>
+      <p class="text-xs text-slate-500">Override individual agents below — blank means it inherits the main model.</p>
+      <div id="agentModelsBox" class="space-y-2 text-xs text-slate-500">No agent for this selection.</div>
+    </div>
+    <div class="px-4 py-3 border-t text-right">
+      <button type="button" id="agentModelsDone" class="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md">Done</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- ── HISTORY VIEW ──────────────────────────────────────────────── -->
 <section id="historyView" class="hidden max-w-[1400px] mx-auto p-4">
@@ -567,7 +661,7 @@
 const VULN_TYPES = [
   "arbitrary_script_execution","data_exfiltration","supply_chain","credential_exposure",
   "prompt_hijacking","resource_exhaustion","privilege_escalation","indirect_injection",
-  "guardfall","scanner_evasion"
+  "guardfall"
 ];
 const PHASE_META = {
   source:      {icon:"📥", name:"source"},
@@ -634,7 +728,10 @@ function defaultOutput() { return `results/webui_run_${nowStamp()}`; }
 let autoOutput = "";   // last auto-generated value, to detect manual edits
 
 // ── phase visibility — always derived from the wizard's current state ────
-function visiblePhases() { return customPhases(); }
+// Modalità dell'ultima run lanciata: "evasion" (tab Evasion → solo red + report) o
+// "custom" (tab Run, fasi derivate dal wizard).
+let activeMode = "custom";
+function visiblePhases() { return activeMode === "evasion" ? ["red", "report"] : customPhases(); }
 function applyPhaseVisibility() {
   const vis = new Set(visiblePhases());
   CREATE_ORDER.forEach(k => {
@@ -721,6 +818,7 @@ async function loadLegacyTemplate(kind) {
   if (t.source === "red") {
     document.querySelectorAll(".c-red-diff").forEach(cb => cb.checked = !t.redDiffs || t.redDiffs.includes(cb.value));
     $("cRedKbChk").checked = false;
+    $("cRedEvasionChk").checked = false;
     cBuildRedVuln();   // tutte le vuln types selezionate (default)
     if (t.useSkillInjectBase) await cUseSkillInjectBase();
   } else if (t.source === "skill_inject") {
@@ -1157,8 +1255,7 @@ function finish(code, report) {
   CREATE_ORDER.forEach(k => { if (phaseEls[k] && !phaseEls[k].done) markDone(k); });
   running = false;
   $("liveDot").classList.add("hidden");
-  $("runBtn").disabled = false;
-  $("stopBtn").disabled = true;
+  setRunButtons(false);
 
   const box = $("finishBox");
   box.classList.remove("hidden");
@@ -1298,6 +1395,8 @@ function cSyncGating() {
   $("cSiBase").classList.toggle("hidden", s !== "red");   // base skill-inject: solo per il Red
   $("cRedDiff").classList.toggle("hidden", s !== "red");  // difficoltà injection: solo per il Red
   $("cRedKb").classList.toggle("hidden", s !== "red");    // profilo KB skill-inject: solo per il Red
+  $("cRedEvasion").classList.toggle("hidden", s !== "red");  // LLM evasion: solo per il Red
+  $("cRedEvasionTech").classList.toggle("hidden", !$("cRedEvasionChk").checked);
   // vuln types: solo per il Red e SOLO se la KB skill-inject è spenta (la KB porta
   // la propria tassonomia a 8 classi → il selettore "nostro" andrebbe in conflitto).
   const kbOn = $("cRedKbChk") && $("cRedKbChk").checked;
@@ -1498,6 +1597,29 @@ function cBuildRedVuln() {
   $("cRedVulnCount").textContent = String(VULN_TYPES.length);
   cUpdateRedVulnCount();
 }
+function checkedValues(sel) { return [...document.querySelectorAll(sel + ':checked')].map(b => b.value); }
+
+// Tecniche di LLM evasion (config/evasion.json via /api/evasion/techniques): una sola
+// lista, due checklist (Run → red, e tab Evasion) con classi diverse.
+let EV_TECHS = [];
+function buildTechBox(boxId, cls) {
+  const box = $(boxId); box.innerHTML = "";
+  EV_TECHS.forEach(t => {
+    const lab = document.createElement("label");
+    lab.className = "flex items-center gap-1.5 cursor-pointer min-w-0";
+    lab.title = t.description;
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.className = cls + " shrink-0"; cb.value = t.id; cb.checked = true;
+    const sp = document.createElement("span"); sp.className = "log-line truncate min-w-0"; sp.textContent = t.id;
+    lab.append(cb, sp); box.appendChild(lab);
+  });
+}
+async function loadEvTechniques() {
+  try { EV_TECHS = await (await fetch("/api/evasion/techniques")).json(); } catch { EV_TECHS = []; }
+  if (!Array.isArray(EV_TECHS)) EV_TECHS = [];
+  buildTechBox("cRedEvasionTechBox", "c-red-evtech");
+  buildTechBox("evTechBox", "ev-tech");
+}
+
 function cSelectedRedVuln() { return [...document.querySelectorAll('.c-red-vuln:checked')].map(b => b.value); }
 function cUpdateRedVulnCount() { $("cRedVulnSel").textContent = String(cSelectedRedVuln().length); }
 
@@ -1516,6 +1638,10 @@ function buildCustomConfig(name) {
       // non si applica (verrebbe ignorato dal backend). Lo azzeriamo per chiarezza.
       const vv = cSelectedRedVuln();
       src.red_vuln_types = (kbOn || !vv.length) ? null : vv;  // null/[] = tutte
+      // LLM evasion: seconda injection per file, rivolta allo scanner. Tecniche: null = tutte.
+      src.red_evasion = $("cRedEvasionChk").checked;
+      const tt = checkedValues('.c-red-evtech');
+      src.red_evasion_techniques = (src.red_evasion && tt.length && tt.length < EV_TECHS.length) ? tt : null;
     }
   } else if (s === "skill_inject") {
     src.skill_inject_categories = [...document.querySelectorAll('.c-si-cat:checked')].map(b => b.value);
@@ -1583,6 +1709,9 @@ async function loadPresetIntoWizard(name) {
       document.querySelectorAll('.c-red-vuln').forEach(cb => cb.checked = !vv || vv.includes(cb.value));
       cUpdateRedVulnCount();
       $("cRedKbChk").checked = !!cfg.source.use_skill_inject_kb;
+      $("cRedEvasionChk").checked = !!cfg.source.red_evasion;
+      const et = cfg.source.red_evasion_techniques;   // null/undefined = all
+      document.querySelectorAll('.c-red-evtech').forEach(cb => cb.checked = !et || et.includes(cb.value));
     }
   } else if (cfg.source.type === "skill_inject") {
     const cats = cfg.source.skill_inject_categories || ["obvious", "contextual"];
@@ -1674,6 +1803,9 @@ document.querySelectorAll('input[name=cSource]').forEach(r => r.onchange = cOnSo
 $("cBlue").onchange = cSyncGating;
 $("cTester").onchange = cSyncGating;
 $("cRedKbChk").onchange = cSyncGating;
+$("cRedEvasionChk").onchange = cSyncGating;
+$("cRedEvAll").onclick  = () => { document.querySelectorAll('.c-red-evtech').forEach(b => b.checked = true); };
+$("cRedEvNone").onclick = () => { document.querySelectorAll('.c-red-evtech').forEach(b => b.checked = false); };
 $("cEval").onchange = applyPhaseVisibility;
 $("cFolderUse").onclick = () => cUseFolder($("cFolder").value.trim());
 $("cSiBase").onclick = cUseSkillInjectBase;
@@ -1702,6 +1834,7 @@ $("cSaveBtn").onclick = cSavePreset;
 $("cDelBtn").onclick = cDeletePreset;
 $("cDupBtn").onclick = cDuplicate;
 refreshPresetList();   // populate the Custom optgroup at load
+loadEvTechniques();
 $("pipeline").onchange();   // seed the wizard from the default selection ("full")
 
 // ── system prompt overrides (advanced) ──────────────────────────────
@@ -1716,13 +1849,14 @@ let promptState = {};       // name → testo corrente (default o editato) — p
 let promptOpen = null;      // agente con dropdown aperto (single-open), null = tutti chiusi
 let promptsReady = false;
 let lastAgentSig = "";
-const PROMPT_CANON = ["red","blue_scan","blue_patch","eval","judge","tester_judge","environment"];
+const PROMPT_CANON = ["red","red_evasion","blue_scan","blue_patch","eval","judge","tester_judge","environment"];
 
 // Quali agenti girano nella selezione corrente (mirror di _used_agents lato backend) —
 // derivati dai toggle dello wizard, uniforme per template predefiniti/preset/custom.
 function agentsForSelection() {
   const set = new Set();
   if (cSource() === "red") set.add("red");
+  if (cSource() === "red" && $("cRedEvasionChk").checked) set.add("red_evasion");
   if ($("cBlue").checked) { set.add("blue_scan"); set.add("blue_patch"); }
   if ($("cEval").checked && !$("cEval").disabled) set.add("eval");
   if ($("cTester").checked) { set.add("judge"); set.add("tester_judge"); set.add("environment"); }
@@ -1835,6 +1969,8 @@ let agentModelsLastSig = "";
 
 function agentModelRolesVisible() {
   const set = new Set();
+  // Tab Evasion: l'unico agente che gira è il Red (evasion-copy non ha difesa/tester).
+  if (currentTab === "evasion") return AGENT_MODEL_ROLES.filter(([key]) => key === "red");
   if (cSource() === "red") set.add("red");
   if ($("cBlue").checked) { set.add("blue_scan"); set.add("blue_patch"); }
   if ($("cEval").checked && !$("cEval").disabled) set.add("validator");
@@ -2010,6 +2146,7 @@ function resetUI(p) {
   // wants just the trailing folder name (matches _RESULTS_DIR/<run_id>/report.html
   // server-side, same as the History tab's links).
   currentRunId = (p.output || "results/webui_run").trim().split("/").filter(Boolean).pop() || null;
+  activeMode = p.mode === "evasion" ? "evasion" : "custom";
   Object.keys(phaseEls).forEach(k => delete phaseEls[k]);
   $("phases").innerHTML = "";
   $("alerts").innerHTML = ""; $("alertsCard").classList.add("hidden");
@@ -2025,6 +2162,12 @@ function resetUI(p) {
   // header box
   $("headerBox").classList.remove("hidden");
   const now = new Date();
+  if (p.mode === "evasion") {
+    $("hbTitle").textContent = `SkillSecurer · evasion copy · ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    $("hbParams").textContent = `source run=${p.source_run} · techniques=${(p.evasion_techniques || []).join("+") || "all"} · `
+      + `parallel=${p.parallel} · out=${p.output}`;
+    return;
+  }
   const pv = $("pipeline").value;
   const label = pv.startsWith("preset:") ? pv.slice("preset:".length) : pv;
   $("hbTitle").textContent = `SkillSecurer · ${label} · ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
@@ -2035,6 +2178,28 @@ function resetUI(p) {
     `source=${(c.source||{}).type} · defense=${eng.join("+") || "none"} · eval=${!!c.eval} · `
     + `tester=${t.enabled?(blueOn?"3way":"2way")+(t.scope?`/${t.scope}`:""):"off"} · `
     + `parallel=${p.parallel} · out=${p.output}`;
+}
+
+// Avvio condiviso fra tab Run e tab Evasion: stesso pannello live, un run alla volta.
+async function startRunRequest(p, argvEl) {
+  setRunButtons(true);
+  resetUI(p);
+
+  let res;
+  try { res = await (await fetch("/run", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(p)})).json(); }
+  catch (err) { addAlert("Failed to start: " + err, "error"); setRunButtons(false); return; }
+
+  if (!res.ok) { addAlert(res.error || "Run failed to start", "error"); setRunButtons(false); return; }
+  argvEl.textContent = (res.argv || []).join(" ");
+  running = true;
+  $("liveDot").classList.remove("hidden");
+  $("stopBtn").disabled = false; $("evStopBtn").disabled = false;
+  openStream();
+}
+// Durante un run i due bottoni di avvio sono bloccati; a fine run (finish) si sbloccano.
+function setRunButtons(busy) {
+  $("runBtn").disabled = busy; $("evRunBtn").disabled = busy;
+  if (!busy) { $("stopBtn").disabled = true; $("evStopBtn").disabled = true; }
 }
 
 $("form").addEventListener("submit", async e => {
@@ -2052,42 +2217,127 @@ $("form").addEventListener("submit", async e => {
   if ((s.type === "red" || s.type === "local_preinjected") && !(s.selected_files || []).length) {
     alert("Select at least one file (Use folder → check the .md files)."); return;
   }
+  if (s.type === "red" && s.red_evasion && !checkedValues('.c-red-evtech').length) {
+    alert("LLM evasion is on: select at least one evasion technique."); return;
+  }
   if (s.type === "online" && !(s.urls || []).length) { alert("Enter at least one URL."); return; }
-
-  $("runBtn").disabled = true;
-  resetUI(p);
-
-  let res;
-  try { res = await (await fetch("/run", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(p)})).json(); }
-  catch (err) { addAlert("Failed to start: " + err, "error"); $("runBtn").disabled = false; return; }
-
-  if (!res.ok) { addAlert(res.error || "Run failed to start", "error"); $("runBtn").disabled = false; return; }
-  $("argv").textContent = (res.argv || []).join(" ");
-  running = true;
-  $("liveDot").classList.remove("hidden");
-  $("stopBtn").disabled = false;
-  openStream();
+  await startRunRequest(p, $("argv"));
 });
 
 $("stopBtn").onclick = () => fetch("/stop", {method:"POST"});
+$("evStopBtn").onclick = () => fetch("/stop", {method:"POST"});
 
 // ── tabs (Run / History) ─────────────────────────────────────────────────
+let currentTab = "run";
+// Un solo model picker (stato `selectedModel`, ids unici): si sposta fisicamente fra
+// Run settings e il tab Evasion invece di duplicarlo.
+const modelPickerHome = document.createElement("div");
+modelPickerHome.style.display = "contents";
+$("modelPicker").before(modelPickerHome);
+modelPickerHome.appendChild($("modelPicker"));
+
 function setTab(which) {
+  currentTab = which;
+  ($("evModelSlot") && which === "evasion" ? $("evModelSlot") : modelPickerHome).appendChild($("modelPicker"));
+  renderAgentModelsPanel(true);
   const on  = "px-4 py-1.5 rounded-md text-sm font-medium bg-blue-600 text-white";
   const off = "px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:bg-slate-100";
   $("runView").classList.toggle("hidden", which !== "run");
+  $("evasionView").classList.toggle("hidden", which !== "evasion");
+  $("liveWrap").classList.toggle("hidden", which !== "run" && which !== "evasion");
   $("historyView").classList.toggle("hidden", which !== "history");
   $("compareView").classList.toggle("hidden", which !== "compare");
   $("tabRun").className        = which === "run"        ? on : off;
+  $("tabEvasion").className    = which === "evasion"    ? on : off;
   $("tabHistory").className    = which === "history"    ? on : off;
   $("tabCompare").className    = which === "compare"    ? on : off;
+  if (which === "evasion") loadEvasionTab();
   if (which === "history") loadHistory();
   if (which === "compare") loadCompareGroups();
 }
 $("tabRun").onclick        = () => setTab("run");
+$("tabEvasion").onclick    = () => setTab("evasion");
 $("tabHistory").onclick    = () => setTab("history");
 $("tabCompare").onclick    = () => setTab("compare");
 $("refreshHistory").onclick = loadHistory;
+
+// ── evasion: copy of a Red-only run + LLM-evasion injection ─────────
+let evRuns = [], evSel = null, evAutoOutput = "";
+
+function loadEvasionTab() {
+  loadEvRuns();
+}
+
+async function loadEvRuns() {
+  const box = $("evRuns");
+  try { evRuns = await (await fetch("/api/evasion/runs")).json(); }
+  catch { box.innerHTML = '<div class="p-3 text-rose-600">failed to load runs</div>'; return; }
+  const ok = evRuns.filter(r => r.eligible).length;
+  $("evRunCount").textContent = `· ${ok} usable of ${evRuns.length}`;
+  if (evSel && !evRuns.some(r => r.path === evSel.path && r.eligible)) evSel = null;
+  if (!evRuns.length) { box.innerHTML = '<div class="p-3 text-slate-400">no runs found</div>'; return; }
+  box.innerHTML = "";
+  evRuns.forEach(r => {
+    const row = document.createElement("label");
+    row.className = "flex items-start gap-2 px-3 py-2 " + (r.eligible
+      ? "cursor-pointer hover:bg-slate-50 has-[:checked]:bg-rose-50" : "opacity-50 cursor-not-allowed");
+    const rb = document.createElement("input");
+    rb.type = "radio"; rb.name = "evRun"; rb.className = "mt-0.5 shrink-0";
+    rb.disabled = !r.eligible; rb.checked = !!evSel && evSel.path === r.path;
+    rb.onchange = () => { evSel = r; evSuggestOutput(); };
+    const info = document.createElement("div"); info.className = "min-w-0";
+    const when = r.timestamp ? new Date(r.timestamp).toLocaleString() : "";
+    info.innerHTML = `<div class="font-medium text-slate-700 log-line truncate">${esc(r.run_id)}</div>`
+      + `<div class="text-slate-500">${r.eligible
+          ? `${r.n} injections · ${r.skills} skills · ${r.vuln_types.length} vuln types · ${esc(r.difficulties.join("/"))}`
+            + (r.missing ? ` · <span class="text-amber-600">${r.missing} files missing</span>` : "")
+          : `<span class="text-slate-400">not usable: ${esc(r.reason || "")}</span>`}</div>`
+      + `<div class="text-slate-400">${esc(r.path)}${when ? " · " + esc(when) : ""}</div>`;
+    row.append(rb, info); box.appendChild(row);
+  });
+}
+
+// Output di default: results/<run>_evasion (con timestamp se esiste già); non tocca un
+// valore che l'utente ha cambiato a mano.
+function evSuggestOutput() {
+  if (!evSel) return;
+  const cur = $("evOutput").value.trim();
+  if (cur && cur !== evAutoOutput) return;
+  const taken = new Set(evRuns.map(r => r.run_id));
+  let name = evSel.run_id + "_evasion";
+  if (taken.has(name)) name += "_" + nowStamp();
+  evAutoOutput = "results/" + name;
+  $("evOutput").value = evAutoOutput;
+}
+
+$("evRefresh").onclick = loadEvRuns;
+$("evTechAll").onclick  = () => document.querySelectorAll('.ev-tech').forEach(b => b.checked = true);
+$("evTechNone").onclick = () => document.querySelectorAll('.ev-tech').forEach(b => b.checked = false);
+
+$("evRunBtn").onclick = async () => {
+  if (running) return;
+  const msg = $("evMsg"); msg.textContent = "";
+  if (!evSel) { msg.textContent = "Select a source run."; return; }
+  const out = $("evOutput").value.trim();
+  if (!out) { msg.textContent = "Enter an output folder."; return; }
+  const techs = checkedValues('.ev-tech');
+  if (!techs.length) { msg.textContent = "Select at least one evasion technique."; return; }
+  const p = {
+    mode: "evasion",
+    source_run: evSel.path,
+    output: out,
+    parallel: $("evParallel").value,
+    max_files: $("evMaxFiles").value,
+    evasion_techniques: techs.length === EV_TECHS.length ? [] : techs,   // [] = tutte
+    model: selectedModel ? selectedModel.id : "",
+    agent_models: collectAgentModelOverrides(),
+    provider_ignore: providerIgnoreCsv(),
+    input_price:  selectedModel && selectedModel.pricing ? selectedModel.pricing.prompt : "",
+    output_price: selectedModel && selectedModel.pricing ? selectedModel.pricing.completion : "",
+    system_prompts: collectPromptOverrides(),
+  };
+  await startRunRequest(p, $("evArgv"));
+};
 
 // ── post-processing: compare runs on the same dataset ──────────────
 let cmpGroups = [];

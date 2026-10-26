@@ -8,6 +8,7 @@ Pipeline disponibili:
   blue-only          input_skills→Blue→Report
   blue-eval          skill-inject→Blue→detection(TP/FP/FN)→Report
   blue-eval-testing  blue-eval + Tester sui soli mancati (verdict != TP)→Report
+  evasion-copy       copia di una run Red-only con in più l'injection di LLM evasion→Report
 """
 import argparse
 import os
@@ -130,7 +131,8 @@ def main():
     # ── Pipeline ─────────────────────────────────────────────────────
     parser.add_argument(
         "--pipeline",
-        choices=["full", "red-only", "blue-only", "blue-eval", "blue-eval-testing", "custom"],
+        choices=["full", "red-only", "blue-only", "blue-eval", "blue-eval-testing", "custom",
+                 "evasion-copy"],
         default="full",
         help="Pipeline to run (default: full)"
     )
@@ -213,7 +215,7 @@ def main():
     )
     full.add_argument(
         "--max-files", type=int, default=None,
-        help="Cap the number of generated injections (safety net)"
+        help="Cap the number of generated injections (safety net); evasion-copy: cap on the source injections augmented"
     )
     full.add_argument(
         "--parallel", type=int, default=20,
@@ -231,6 +233,17 @@ def main():
     full.add_argument(
         "--vuln-types", nargs="+", default=None, metavar="TYPE",
         help="Filter by type: data_exfiltration supply_chain ..."
+    )
+    full.add_argument(
+        "--evasion", action="store_true",
+        help="full/red-only: the Red adds a SECOND injection to every generated file — "
+             "an LLM-evasion text aimed at the LLM scanner that will review it "
+             "(config/evasion.json). Ground truth stays the vuln_type payload only."
+    )
+    full.add_argument(
+        "--evasion-techniques", nargs="+", default=None, metavar="TECHNIQUE",
+        help="With --evasion (or evasion-copy): restrict to these techniques "
+             "(default: all, assigned round-robin). See config/evasion.json."
     )
     full.add_argument(
         "--skills-dir", default=None,
@@ -271,6 +284,15 @@ def main():
     custom.add_argument(
         "--preset", default=None,
         help="Name of a custom preset saved in pipelines/custom/ (custom pipeline)"
+    )
+
+    # ── Parametri pipeline evasion-copy ───────────────────────────────
+    ecopy = parser.add_argument_group("Pipeline: evasion-copy")
+    ecopy.add_argument(
+        "--source-run", default=None, metavar="RUN",
+        help="Red-only run to copy: a path, or a run name under results/. The copy "
+             "(--output) has the same base files and vuln_type payloads, plus an "
+             "LLM-evasion injection in every injected file."
     )
 
     # ── Docker (comune) ───────────────────────────────────────────────
@@ -341,6 +363,8 @@ def main():
             docker_image=      args.docker_image,
             difficulties=      args.difficulties,
             vuln_types=        args.vuln_types,
+            red_evasion=            args.evasion,
+            red_evasion_techniques= args.evasion_techniques,
             notes=             args.notes,
             input_price=       args.input_price,
             output_price=      args.output_price,
@@ -369,6 +393,8 @@ def main():
             max_files=         args.max_files,
             difficulties=      args.difficulties,
             vuln_types=        args.vuln_types,
+            red_evasion=            args.evasion,
+            red_evasion_techniques= args.evasion_techniques,
             notes=             args.notes,
             input_price=       args.input_price,
             output_price=      args.output_price,
@@ -520,6 +546,35 @@ def main():
             **_no_llm_state(args),
         )
         custom_pipe.run(state)
+
+    # ── Pipeline: evasion-copy ──────────────────────────────────────────
+    # Nessun motore di difesa né tester: parte da una run Red-only già esistente e
+    # ne produce una copia con l'injection di LLM evasion in più (solo chiamate Red).
+    elif args.pipeline == "evasion-copy":
+        if not args.source_run:
+            parser.error("--source-run is required for the evasion-copy pipeline")
+
+        from pipelines import evasion_copy
+
+        try:
+            src_dir = evasion_copy.resolve_run_dir(args.source_run)
+        except FileNotFoundError as e:
+            cli.error(str(e))
+            sys.exit(1)
+
+        res = evasion_copy.run({
+            "source_run_dir":         src_dir,
+            "output_dir":             outdir,
+            "parallel":               getattr(args, "parallel", 5),
+            "max_files":              args.max_files,
+            "red_evasion_techniques": args.evasion_techniques,
+            "notes":                  args.notes,
+            "input_price":            args.input_price,
+            "output_price":           args.output_price,
+        })
+        if res.get("error"):
+            llm_proxy.stop()
+            sys.exit(1)
 
     llm_proxy.stop()
 

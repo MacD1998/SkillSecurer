@@ -856,6 +856,13 @@
       items.push(`<div><dt class="font-medium text-gray-600 inline">Line inserted:</dt> <dd class="inline text-gray-800">${r.line_num}</dd></div>`);
     if (r.reasoning)
       items.push(`<div class="mt-2"><dt class="font-medium text-gray-600">Red reasoning:</dt><dd class="text-gray-800 italic mt-1 whitespace-pre-wrap">${esc(r.reasoning)}</dd></div>`);
+    // Seconda injection (LLM evasion, rivolta allo scanner): ground truth = solo il payload.
+    if (r.evasion_text) {
+      items.push(`<div class="mt-3 pt-2 border-t border-gray-200"><dt class="font-medium text-gray-600 inline">LLM evasion:</dt> <dd class="inline text-gray-800">${esc(r.evasion_technique || '')}${r.evasion_line_num != null ? ` · line ${r.evasion_line_num}` : ''}</dd></div>`);
+      items.push(`<div><dt class="font-medium text-gray-600">Evasion text:</dt><dd class="text-gray-800 mt-1 whitespace-pre-wrap font-mono">${esc(r.evasion_text)}</dd></div>`);
+      if (r.evasion_reasoning)
+        items.push(`<div class="mt-2"><dt class="font-medium text-gray-600">Evasion reasoning:</dt><dd class="text-gray-800 italic mt-1 whitespace-pre-wrap">${esc(r.evasion_reasoning)}</dd></div>`);
+    }
     return collapsible('Red agent metadata', `<dl class="text-xs space-y-1">${items.join('')}</dl>`, false);
   }
 
@@ -959,6 +966,8 @@
             <div class="font-semibold text-red-700 mb-1">🔴 Injected payload</div>
             <pre class="font-mono text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">${esc(r.inj_text)}</pre>
             <div class="mt-1 text-gray-600">${meta}</div>
+            ${r.evasion_text ? `<div class="font-semibold text-red-700 mt-2 mb-1">🕵️ Injected evasion text${r.evasion_technique ? ' — ' + esc(r.evasion_technique) : ''}</div>
+            <pre class="font-mono text-xs whitespace-pre-wrap max-h-32 overflow-y-auto">${esc(r.evasion_text)}</pre>` : ''}
           </div>`;
       } else if (ver === 'fixed') {
         const patches = r.patches_applied || [];
@@ -1203,6 +1212,13 @@
         `<pre class="text-xs bg-gray-50 border border-gray-200 rounded p-3 overflow-x-auto whitespace-pre-wrap font-mono">${esc(r.inj_text)}</pre>`,
         (r.asr_pre_count || 0) > 0 || r.verdict === 'FN');
     }
+    // LLM-evasion text (2nd injection, aimed at the scanner). Not part of the ground truth.
+    if (r.evasion_text) {
+      const tech = r.evasion_technique ? ` — ${esc(r.evasion_technique)}` : '';
+      body += collapsible('Injected evasion text' + tech,
+        `<pre class="text-xs bg-gray-50 border border-gray-200 rounded p-3 overflow-x-auto whitespace-pre-wrap font-mono">${esc(r.evasion_text)}</pre>`,
+        (r.asr_pre_count || 0) > 0 || r.verdict === 'FN');
+    }
 
     // Blue finding + patch (collapsible)
     const findings = r.findings || [];
@@ -1339,6 +1355,13 @@
         <details class="mt-3 border border-indigo-200 rounded">
           <summary class="cursor-pointer select-none px-3 py-2 bg-indigo-50 text-indigo-800 text-sm font-medium"><span class="arrow"></span>🧠 Red user prompt (with KB)</summary>
           <pre class="text-xs bg-gray-50 border-t border-indigo-100 p-3 overflow-x-auto whitespace-pre-wrap font-mono">${esc(r.red_user_prompt)}</pre>
+        </details>`;
+    }
+    if (r.evasion_user_prompt) {
+      body += `
+        <details class="mt-3 border border-indigo-200 rounded">
+          <summary class="cursor-pointer select-none px-3 py-2 bg-indigo-50 text-indigo-800 text-sm font-medium"><span class="arrow"></span>🧠 Red evasion user prompt</summary>
+          <pre class="text-xs bg-gray-50 border-t border-indigo-100 p-3 overflow-x-auto whitespace-pre-wrap font-mono">${esc(r.evasion_user_prompt)}</pre>
         </details>`;
     }
     body += renderAttemptsDetail(r, 'base');

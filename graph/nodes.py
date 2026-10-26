@@ -329,6 +329,19 @@ def node_load_external_skills(state: SSE3State) -> dict:
 
 # ── Nodo 1: red ───────────────────────────────────────────────────────
 
+def _ground_truth_entry(r: dict) -> dict:
+    """Voce di ground_truth.json per un record Red. `injection` è SEMPRE il solo
+    payload di vuln_type: l'evasion (se c'è) è un campo a parte, così l'eval che
+    confronta i finding dei difensori col payload non la scambia per l'attacco."""
+    entry = {"injection":  r["inj_text"],
+             "vuln_type":  r["vuln_type"],
+             "difficulty": r["difficulty"]}
+    if r.get("evasion_text"):
+        entry["evasion"]           = r["evasion_text"]
+        entry["evasion_technique"] = r.get("evasion_technique")
+    return entry
+
+
 def node_red(state: SSE3State) -> dict:
     """
     Genera N×K SKILL.md iniettate.
@@ -336,6 +349,7 @@ def node_red(state: SSE3State) -> dict:
     Output: injections (lista InjectionRecord parziali — solo campi Red).
     """
     from agents import generate
+    from agents.red_agent import load_evasion
 
     skill_contents       = state["skill_contents"]
     catalog              = state["catalog"]
@@ -343,7 +357,15 @@ def node_red(state: SSE3State) -> dict:
     max_files            = state.get("max_files")
     parallel             = state.get("parallel", 4)
 
-    cli.phase("red", "generating injected skills")
+    evasion = None
+    if state.get("red_evasion"):
+        try:
+            evasion = load_evasion(state.get("red_evasion_techniques"))
+        except ValueError as e:
+            return {"error": f"[Red] {e}", "injections": []}
+
+    cli.phase("red", "generating injected skills"
+              + (" + LLM evasion" if evasion else ""))
     inj_dir = output_dir / "injected"
 
     # Salva catalogo filtrato su file temporaneo per il red agent
@@ -386,6 +408,7 @@ def node_red(state: SSE3State) -> dict:
             parallel=            parallel,
             on_progress=         _on_red,
             kb=                  state.get("red_kb"),
+            evasion=             evasion,
         )
         all_inj.extend(injs)
         if remaining is not None:
@@ -406,9 +429,7 @@ def node_red(state: SSE3State) -> dict:
     # record): il riscan recupera le categorie reali invece di "user_provided".
     try:
         (inj_dir / "ground_truth.json").write_text(
-            json.dumps({Path(r["inj_path"]).name: {"injection":  r["inj_text"],
-                                                    "vuln_type":  r["vuln_type"],
-                                                    "difficulty": r["difficulty"]}
+            json.dumps({Path(r["inj_path"]).name: _ground_truth_entry(r)
                        for r in all_inj},
                       indent=2, ensure_ascii=False),
             encoding="utf-8")
