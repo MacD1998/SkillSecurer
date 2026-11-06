@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 llm_proxy.py — reverse proxy locale per i motori LLM esterni (skillspector/cisco/aig)
 ========================================================================================

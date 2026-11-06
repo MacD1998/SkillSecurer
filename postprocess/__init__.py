@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """Post-processing: confronti fra run già eseguite (nessuna chiamata LLM).
 
 `run_index`  → scopre le run in results/ e le raggruppa per dataset di input.

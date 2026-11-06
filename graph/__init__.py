@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 from .state import SSE3State, InjectionRecord
 from .nodes import (
     node_load,

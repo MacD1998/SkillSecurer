@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """Crea una cartella "gemella" di un dataset/run filtrata su un sottoinsieme di skill.
 
 Usato per costruire dataset_red_on_skillTrustBenchVerified_20 (e la sua sorgente

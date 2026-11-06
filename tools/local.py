@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 import os
 from langchain_core.tools import tool
 

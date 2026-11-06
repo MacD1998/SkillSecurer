@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 core/token_tracker.py — accumulatore globale thread-safe di token e costo LLM
 ========================================================================

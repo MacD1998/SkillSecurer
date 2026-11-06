@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 Schema + validator della pipeline custom (5ª modalità).
 =======================================================

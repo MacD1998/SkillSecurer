@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 Genera i file SKILL.md iniettati dalle contextual injections di skill-inject.
 Replica esattamente la logica di inject_at_line() di build_sandbox.py.

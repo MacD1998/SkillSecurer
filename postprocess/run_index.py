@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 run_index.py — scopre le run in results/ e le raggruppa per dataset di input.
 =============================================================================

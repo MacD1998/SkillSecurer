@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 core/cli_output.py — output CLI pulito e orientato al progresso per SSE.
 Solo stdlib (sys, time, datetime, shutil, threading). Nessuna dipendenza esterna.

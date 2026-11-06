@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 skill_inject_loader.py — carica le injection pre-costruite di skill-inject
 ==========================================================================

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """Genera pagine HTML standalone per la validazione manuale dei finding di Blue.
 
 Ogni skill flaggata (con almeno un finding) viene assegnata a `coverage` validatori

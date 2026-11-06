@@ -11,7 +11,7 @@ RedInjector generates the attack · BluePatcher detects and patches it · Tester
 ![Docker](https://img.shields.io/badge/sandbox-Docker-2496ED)
 ![LLM](https://img.shields.io/badge/LLM-multi--provider-success)
 ![Status](https://img.shields.io/badge/status-research-yellow)
-![License](https://img.shields.io/badge/license-Apache%202.0-blue)
+![License](https://img.shields.io/badge/license-AGPLv3-blue)
 
 </div>
 
@@ -1185,4 +1185,6 @@ use SkillSecurer or the SSE benchmark in your own work, please cite the thesis.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](LICENSE).
+GNU Affero General Public License v3.0 (AGPL-3.0) — see [LICENSE](LICENSE).
+
+Third-party components under `vendor/` (e.g. `vendor/skillspector`) retain their original licenses (Apache 2.0).

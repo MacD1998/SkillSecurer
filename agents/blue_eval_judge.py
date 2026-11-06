@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 blue_eval_judge.py — Tier-2 validator per pipelines.blue_eval.classify()
 =========================================================================

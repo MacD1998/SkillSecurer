@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Donato Mecca
 """
 comparison_report.py — report comparativo su N run che condividono il dataset.
 ==============================================================================
