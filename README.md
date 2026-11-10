@@ -1179,7 +1179,9 @@ After changing `docker/run_agent.py`, rebuild the image:
 ## Citation
 
 This project is the subject of a Master's thesis in Cybersecurity at Politecnico di Torino. If you
-use SkillSecurer or the SSE benchmark in your own work, please cite the thesis.
+use SkillSecurer or the SSE benchmark in your own work, please cite the [arXiv](https://arxiv.org/abs/2609.14079) paper.
+
+This work has received funding from the Applied Sciences Italian Fund (Fondo Italiano per le Scienze Applicate—FISA) by the Italian Ministry of University and Research, under the AI4CTI project (grant agreement No. FISA-2023-00168).
 
 ---
 
